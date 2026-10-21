@@ -535,7 +535,11 @@ with missingness screening, imputation, LASSO and the embedding refitted within
 each training fold. Each extension was compared with its matched control on the
 same folds by the corrected test, with Holm adjustment over 15 comparisons per
 metric. Because this recipe omits inner tuning, the extensions are compared only
-with their own static controls, not with Table 4.
+with their own static controls, not with Table 4. The extension experiments were
+run on a separate machine; rebuilding their input features from our own data
+reproduced the same patients, outcomes and missingness pattern, with numerical
+differences only at floating-point precision (maximum absolute difference
+\(2.8 \times 10^{-14}\)).
 
 \hypertarget{results}{%
 \section{Results}\label{results}}
