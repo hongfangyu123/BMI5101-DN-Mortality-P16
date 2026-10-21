@@ -1,0 +1,6 @@
+step,n,n_excluded,deaths_1y,mortality_1y
+[1] patients with a DN-coded admission that has an ICU stay,3189,0,857,0.2687
+[2] first ICU stay of the index admission (definition C),3189,0,857,0.2687
+[3] age >= 18,3189,0,857,0.2687
+"[4] exclude ICU stay < 24 h, alive at 24 h (transferred out)",2595,594,718,0.2767
+[5] exclude death before ICU admission + 24 h,2557,38,680,0.2659

@@ -1,0 +1,4 @@
+params,model,seconds,folds_planned,extrapolated_hours
+paper,LR (unpenalised),0.026,50,0.0
+tuned,RF (tuned),57.319,50,0.796
+-,"LASSO (per fold, shared)",32.306,50,0.449

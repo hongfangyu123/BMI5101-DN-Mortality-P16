@@ -1,0 +1,73 @@
+\documentclass[11pt,a4paper]{article}
+
+% ---- encoding and fonts (pdfLaTeX)
+\usepackage[T1]{fontenc}
+\usepackage[utf8]{inputenc}
+\usepackage{mathptmx}
+\usepackage[scaled=0.92]{helvet}
+\usepackage{textcomp}
+\usepackage{newunicodechar}
+\newunicodechar{λ}{\ensuremath{\lambda}}
+\newunicodechar{Δ}{\ensuremath{\Delta}}
+\newunicodechar{χ}{\ensuremath{\chi}}
+\newunicodechar{→}{\ensuremath{\rightarrow}}
+\newunicodechar{≥}{\ensuremath{\geq}}
+\newunicodechar{≤}{\ensuremath{\leq}}
+\newunicodechar{×}{\ensuremath{\times}}
+\newunicodechar{−}{\ensuremath{-}}
+\newunicodechar{±}{\ensuremath{\pm}}
+\newunicodechar{⁹}{\textsuperscript{9}}
+\newunicodechar{²}{\textsuperscript{2}}
+\newunicodechar{†}{\textdagger}
+
+% ---- layout
+\usepackage[margin=2.5cm]{geometry}
+\usepackage{setspace}\onehalfspacing
+\usepackage{parskip}
+\usepackage{microtype}
+
+% ---- maths, tables, figures
+\usepackage{amsmath,amssymb,bm}
+\usepackage{longtable,booktabs,array,calc}
+\usepackage{graphicx}
+\usepackage{float}
+\usepackage{caption}
+\captionsetup{font=small,labelfont=bf}
+\providecommand{\tightlist}{\setlength{\itemsep}{0pt}\setlength{\parskip}{0pt}}
+\def\real#1{#1}  % pandoc column-width helper
+\setlength{\LTcapwidth}{\textwidth}
+\usepackage{etoolbox}
+\AtBeginEnvironment{longtable}{\small\setstretch{1.1}}
+\setlength{\tabcolsep}{4pt}
+
+% ---- references: APA 7th edition
+\usepackage[american]{babel}
+\usepackage{csquotes}
+\usepackage[style=apa,backend=biber]{biblatex}
+\addbibresource{references.bib}
+
+\usepackage{xurl}
+\usepackage[hidelinks]{hyperref}
+
+\title{Fixing a MIMIC-IV benchmark: a leakage-free, landmark-based model for one-year mortality in ICU patients with diabetic neuropathy}
+\author{BMI5101 Group Project (P16)\\[2pt] \small [Author names and affiliations]}
+\date{\today}
+
+\begin{document}
+\maketitle
+
+\begin{abstract}
+\noindent
+\input{abstract.tex}
+
+\smallskip\noindent\textbf{Keywords:} diabetic neuropathy; ICU; mortality prediction; MIMIC-IV; landmark model; nested cross-validation; LASSO; calibration
+\end{abstract}
+
+\input{body.tex}
+
+\printbibliography
+
+\clearpage
+\input{supplementary.tex}
+
+\end{document}

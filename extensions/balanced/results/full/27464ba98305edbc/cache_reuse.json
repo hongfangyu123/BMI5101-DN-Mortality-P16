@@ -1,0 +1,15 @@
+{
+  "source_signature": "ebf3f368bb8beb5c",
+  "source_code_sha256": "1c809fb4289272d911c268597d0dfaec1c8ac8acd895c360b00a1f407bad1f69",
+  "target_code_sha256": "fe1d0da69caf22eb8919e2da4ffa5ee3ff79feba915abebb52c779e556c5f89c",
+  "folds_imported_or_verified": 400,
+  "training_fingerprint": {
+    "modeling_training_ast": "e3ee549f36dafe22e84b4624cd16a839d1932e2d89e82bccae72c54da497104e",
+    "features": "f363c4e94ee4d05e22a9982b754d1a66f8ba750e0377944a5e9aece0e4af9131",
+    "settings": "e9342193b6fe35103ddcc8444154fe1568d8787c58e7699a9f85978188888ca4",
+    "config": "20f9a1283002bc912fe078722159264d8a3f8813a0dd1b1f91d6d1eaf7a1f5a2",
+    "lasso": "65219c1b6bf353d711b32eddd41e9de0e76c6a263e839f9a3e5f9024c08be191",
+    "variables": "c8af49625983214bf35f440180837a016a5a2274cdd7f1b6db07e31dfaa9b4c9"
+  },
+  "note": "原预测复制到新签名；旧代码与数据目录保留。预处理的 joblib 缓存可按相同输入复用。"
+}

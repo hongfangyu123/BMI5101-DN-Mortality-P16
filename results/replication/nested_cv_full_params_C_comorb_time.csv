@@ -1,0 +1,21 @@
+model,params,n_folds
+RF (tuned),"{""max_depth"": 4, ""max_features"": 1, ""min_samples_leaf"": 3}",7
+RF (tuned),"{""max_depth"": 4, ""max_features"": 1, ""min_samples_leaf"": 10}",5
+RF (tuned),"{""max_depth"": 4, ""max_features"": 1, ""min_samples_leaf"": 5}",5
+RF (tuned),"{""max_depth"": null, ""max_features"": 1, ""min_samples_leaf"": 20}",5
+RF (tuned),"{""max_depth"": 6, ""max_features"": 1, ""min_samples_leaf"": 20}",5
+RF (tuned),"{""max_depth"": 6, ""max_features"": 1, ""min_samples_leaf"": 10}",3
+RF (tuned),"{""max_depth"": 6, ""max_features"": 1, ""min_samples_leaf"": 1}",2
+RF (tuned),"{""max_depth"": 4, ""max_features"": 1, ""min_samples_leaf"": 20}",2
+RF (tuned),"{""max_depth"": 4, ""max_features"": 2, ""min_samples_leaf"": 1}",2
+RF (tuned),"{""max_depth"": 6, ""max_features"": 1, ""min_samples_leaf"": 3}",2
+RF (tuned),"{""max_depth"": 10, ""max_features"": 1, ""min_samples_leaf"": 20}",2
+RF (tuned),"{""max_depth"": null, ""max_features"": 1, ""min_samples_leaf"": 10}",2
+RF (tuned),"{""max_depth"": null, ""max_features"": 1, ""min_samples_leaf"": 3}",1
+RF (tuned),"{""max_depth"": 10, ""max_features"": 1, ""min_samples_leaf"": 5}",1
+RF (tuned),"{""max_depth"": 4, ""max_features"": 2, ""min_samples_leaf"": 5}",1
+RF (tuned),"{""max_depth"": 6, ""max_features"": 1, ""min_samples_leaf"": 5}",1
+RF (tuned),"{""max_depth"": 4, ""max_features"": 3, ""min_samples_leaf"": 20}",1
+RF (tuned),"{""max_depth"": null, ""max_features"": 1, ""min_samples_leaf"": 5}",1
+RF (tuned),"{""max_depth"": 4, ""max_features"": 1, ""min_samples_leaf"": 1}",1
+RF (tuned),"{""max_depth"": 6, ""max_features"": 3, ""min_samples_leaf"": 3}",1

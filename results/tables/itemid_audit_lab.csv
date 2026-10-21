@@ -1,0 +1,29 @@
+itemid,label,fluid,category,valueuom,n_rows,n_numeric,p01,p50,p99
+50868,Anion Gap,Blood,Chemistry,mEq/L,231001,230992,7.0,14.0,27.0
+50882,Bicarbonate,Blood,Chemistry,mEq/L,231454,231362,13.0,25.0,38.0
+50893,"Calcium, Total",Blood,Chemistry,mg/dL,186087,186054,7.0,8.8,10.7
+50902,Chloride,Blood,Chemistry,mEq/L,236731,236695,85.0,100.0,115.0
+50912,Creatinine,Blood,Chemistry,mg/dL,240736,240677,0.4,1.5,10.7
+50931,Glucose,Blood,Chemistry,mg/dL,218145,218117,52.0,151.0,506.0
+50971,Potassium,Blood,Chemistry,mEq/L,241673,241535,3.1,4.3,6.5
+50983,Sodium,Blood,Chemistry,mEq/L,238515,238482,125.0,138.0,149.0
+51006,Urea Nitrogen,Blood,Chemistry,mg/dL,238395,238289,5.0,29.0,121.0
+51133,Absolute Lymphocyte Count,Blood,Hematology,K/uL,28962,28779,0.13,1.22,5.9
+51146,Basophils,Blood,Hematology,%,54146,53910,0.0,0.4,2.0
+51222,Hemoglobin,Blood,Hematology,g/dL,210421,209950,6.5,9.7,15.5
+51237,INR(PT),Blood,Hematology,,103411,102417,0.9,1.3,5.4
+51244,Lymphocytes,Blood,Hematology,%,54146,53910,1.8,17.3,66.0
+51245,"Lymphocytes, Percent",Blood,Hematology,%,834,833,2.0,27.0,62.68
+51254,Monocytes,Blood,Hematology,%,54146,53910,0.8,6.6,23.0
+51256,Neutrophils,Blood,Hematology,%,54146,53910,11.0,70.9,93.8
+51265,Platelet Count,Blood,Hematology,K/uL,210482,209704,25.0,218.0,625.0
+51274,PT,Blood,Hematology,sec,103389,102417,9.9,14.7,56.3
+51275,PTT,Blood,Hematology,sec,102575,101367,22.0,36.0,150.0
+51277,RDW,Blood,Hematology,%,208394,207714,12.2,15.5,24.4
+51279,Red Blood Cells,Blood,Hematology,m/uL,208407,207861,2.16,3.37,5.42
+51300,WBC Count,Blood,Hematology,K/uL,834,833,1.83,6.2,20.97
+51301,White Blood Cells,Blood,Hematology,K/uL,208784,208208,1.9,8.0,28.6
+51755,White Blood Cells,Blood,Chemistry,K/uL,7,7,4.1,6.6,11.12
+52074,Absolute Monocyte Count,Blood,Hematology,K/uL,28962,28779,0.01,0.64,2.61
+52075,Absolute Neutrophil Count,Blood,Hematology,K/uL,29947,29762,0.12,5.44,26.51
+52769,Absolute Lymphocyte Count,Blood,Hematology,#/uL,834,833,87.96,1617.0,5487.36

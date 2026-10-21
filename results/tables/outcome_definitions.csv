@@ -1,0 +1,17 @@
+definition,outcome,n,deaths,rate
+A,death_1y_icu,837,189,0.2258
+A,death_1y_adm,837,189,0.2258
+A,death_inhosp,837,68,0.0812
+A,death_any_dod,837,269,0.3214
+B,death_1y_icu,1228,283,0.2305
+B,death_1y_adm,1228,283,0.2305
+B,death_inhosp,1228,91,0.0741
+B,death_any_dod,1228,445,0.3624
+C,death_1y_icu,1960,494,0.252
+C,death_1y_adm,1960,494,0.252
+C,death_inhosp,1960,140,0.0714
+C,death_any_dod,1960,839,0.4281
+D,death_1y_icu,1685,400,0.2374
+D,death_1y_adm,1685,400,0.2374
+D,death_inhosp,1685,122,0.0724
+D,death_any_dod,1685,681,0.4042

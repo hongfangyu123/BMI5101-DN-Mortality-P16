@@ -1,0 +1,68 @@
+# ---------------------------------------------------------------- patient-level data never enters git
+# raw / derived data, wherever an analysis writes it (root data/ and extensions/data/)
+data/**
+!data/interim/.gitkeep
+!data/processed/.gitkeep
+**/data/
+**/mimic-iv-3.1/
+# external clone tracked by commit hash only
+external/mimic-code/
+**/mimic-code/
+# patient-level file types, models and caches (defence in depth)
+*.csv.gz
+*.parquet
+*.arrow
+*.feather
+*.duckdb
+*.duckdb*
+*.sqlite*
+*.pkl
+*.pickle
+*.joblib
+*.npz
+*.npy
+*.h5
+*.hdf5
+*.pt
+*.pth
+*.zip
+nested_cache/
+**/nested_cache/
+**/pipeline_cache/
+# logs
+**/logs/
+*.log
+# single-patient SHAP force plots (patient-level values) stay local
+fig6c_*
+fig6d_*
+fig6e_*
+**/fig6c_*
+**/fig6d_*
+**/fig6e_*
+
+# ---------------------------------------------------------------- PDFs: only the paper and result figures are published
+*.pdf
+!paper/*.pdf
+!paper/**/*.pdf
+!results/figures/*.pdf
+
+# ---------------------------------------------------------------- local-only project files
+archive/
+CLAUDE.md
+.claude/
+docs/*.ipynb
+docs/topic16.pdf
+
+# ---------------------------------------------------------------- credentials, backups, tooling
+.env
+.env.*
+*.pem
+*.key
+**/.code_backups/
+**/.report_backups/
+__pycache__/
+*.py[cod]
+.ipynb_checkpoints/
+.DS_Store
+.vscode/
+.idea/

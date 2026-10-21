@@ -1,0 +1,24 @@
+item,value
+cohort C stays,1960
+charlson diabetes_with_cc = 0 (index admission),<10
+  of which explained by a 249.6x DN code (not in charlson diabetes lists),<10
+subset admissions rows = raw (cohort-C subjects),13936 = 13936
+subset diagnoses_icd rows = raw (cohort-C subjects),266948 = 266948
+patients with >= 1 prior admission,1123
+patients with >= 1 prior diagnosis code,1123
+patients with >= 1 D8.3 acute code in the index admission,550
+index admission with 586/N19,0
+  of which with another charlson renal code in the index admission,0
+  of which with 585.x/N18.x (CKD) in the index admission,0
+"586/N19 diagnosis rows, cohort-C subjects, any admission",<10
+"586/N19 diagnosis rows, whole MIMIC-IV v3.1 (raw diagnoses_icd)",119
+"CCI original, median (IQR)","7 (5, 9)"
+"CCI sensitivity, median (IQR)","7 (5, 9)"
+CCI changed (n),843
+CCI increased (n),528
+CCI decreased (n),315
+"CCI change, mean",0.374
+"SAPS-II original, median (IQR)","36 (28, 44)"
+"SAPS-II sensitivity, median (IQR)","36 (29, 45)"
+SAPS-II changed (n),21
+"SAPS-II change, mean",0.126

@@ -1,0 +1,33 @@
+source_project: ../../dn_mortality_repro_V3/dn_mortality_repro
+seeds: [42, 43, 44, 45, 46]
+outer_folds: 10
+inner_lasso_folds: 5
+lasso_lambdas: 30
+stack_folds: 3
+jobs: 2
+missing_threshold: 0.20
+embedding_components: 32
+embedding_min_df: 10
+fixed_parameters:
+  LR:
+    C: 1.0
+  RF:
+    n_estimators: 200
+    max_depth: 10
+    min_samples_leaf: 10
+    max_features: sqrt
+  XGBoost:
+    n_estimators: 100
+    max_depth: 2
+    learning_rate: 0.1
+    subsample: 0.8
+    colsample_bytree: 0.6
+experiments:
+  - static_lr
+  - static_rf
+  - static_xgb
+  - static_stacking
+  - temporal_lr
+  - burden_lr
+  - embedding_lr
+  - combined_stacking

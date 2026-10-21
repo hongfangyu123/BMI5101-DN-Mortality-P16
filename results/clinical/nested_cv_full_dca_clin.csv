@@ -1,0 +1,505 @@
+params,model,threshold,net_benefit_model,net_benefit_all,net_benefit_none
+paper,RF (paper),0.05,0.229469,0.227384,0.0
+paper,RF (paper),0.06,0.223276,0.219165,0.0
+paper,RF (paper),0.07,0.2162,0.210768,0.0
+paper,RF (paper),0.08,0.209861,0.20219,0.0
+paper,RF (paper),0.09,0.203278,0.193423,0.0
+paper,RF (paper),0.1,0.197555,0.184461,0.0
+paper,RF (paper),0.11,0.191753,0.175297,0.0
+paper,RF (paper),0.12,0.185606,0.165926,0.0
+paper,RF (paper),0.13,0.18056,0.156339,0.0
+paper,RF (paper),0.14,0.17472,0.146529,0.0
+paper,RF (paper),0.15,0.169187,0.136488,0.0
+paper,RF (paper),0.16,0.163581,0.126208,0.0
+paper,RF (paper),0.17,0.158052,0.11568,0.0
+paper,RF (paper),0.18,0.152846,0.104896,0.0
+paper,RF (paper),0.19,0.14807,0.093845,0.0
+paper,RF (paper),0.2,0.143105,0.082518,0.0
+paper,RF (paper),0.21,0.137887,0.070905,0.0
+paper,RF (paper),0.22,0.132987,0.058993,0.0
+paper,RF (paper),0.23,0.127071,0.046772,0.0
+paper,RF (paper),0.24,0.1228,0.03423,0.0
+paper,RF (paper),0.25,0.117751,0.021353,0.0
+paper,RF (paper),0.26,0.113373,0.008128,0.0
+paper,RF (paper),0.27,0.108168,-0.005459,0.0
+paper,RF (paper),0.28,0.103738,-0.019424,0.0
+paper,RF (paper),0.29,0.099702,-0.033782,0.0
+paper,RF (paper),0.3,0.094446,-0.04855,0.0
+paper,RF (paper),0.31,0.09012,-0.063747,0.0
+paper,RF (paper),0.32,0.086443,-0.07939,0.0
+paper,RF (paper),0.33,0.083824,-0.0955,0.0
+paper,RF (paper),0.34,0.080056,-0.112099,0.0
+paper,RF (paper),0.35,0.076223,-0.129208,0.0
+paper,RF (paper),0.36,0.072433,-0.146852,0.0
+paper,RF (paper),0.37,0.069206,-0.165056,0.0
+paper,RF (paper),0.38,0.065516,-0.183847,0.0
+paper,RF (paper),0.39,0.061914,-0.203255,0.0
+paper,RF (paper),0.4,0.058191,-0.223309,0.0
+paper,RF (paper),0.41,0.056013,-0.244043,0.0
+paper,RF (paper),0.42,0.053493,-0.265492,0.0
+paper,RF (paper),0.43,0.050346,-0.287694,0.0
+paper,RF (paper),0.44,0.048299,-0.310688,0.0
+paper,RF (paper),0.45,0.046455,-0.334519,0.0
+paper,RF (paper),0.46,0.042898,-0.359232,0.0
+paper,RF (paper),0.47,0.041657,-0.384878,0.0
+paper,RF (paper),0.48,0.040286,-0.41151,0.0
+paper,RF (paper),0.49,0.038522,-0.439187,0.0
+paper,RF (paper),0.5,0.036088,-0.467971,0.0
+paper,RF (paper),0.51,0.032663,-0.497929,0.0
+paper,RF (paper),0.52,0.030473,-0.529136,0.0
+paper,RF (paper),0.53,0.028422,-0.561671,0.0
+paper,RF (paper),0.54,0.026525,-0.59562,0.0
+paper,RF (paper),0.55,0.025091,-0.631079,0.0
+paper,RF (paper),0.56,0.024192,-0.668148,0.0
+paper,RF (paper),0.57,0.022669,-0.706943,0.0
+paper,RF (paper),0.58,0.020906,-0.747584,0.0
+paper,RF (paper),0.59,0.019472,-0.790208,0.0
+paper,RF (paper),0.6,0.018142,-0.834963,0.0
+paper,RF (R defaults) (paper),0.05,0.221099,0.227384,0.0
+paper,RF (R defaults) (paper),0.06,0.215059,0.219165,0.0
+paper,RF (R defaults) (paper),0.07,0.208889,0.210768,0.0
+paper,RF (R defaults) (paper),0.08,0.202585,0.20219,0.0
+paper,RF (R defaults) (paper),0.09,0.196143,0.193423,0.0
+paper,RF (R defaults) (paper),0.1,0.189557,0.184461,0.0
+paper,RF (R defaults) (paper),0.11,0.182824,0.175297,0.0
+paper,RF (R defaults) (paper),0.12,0.169531,0.165926,0.0
+paper,RF (R defaults) (paper),0.13,0.164748,0.156339,0.0
+paper,RF (R defaults) (paper),0.14,0.159854,0.146529,0.0
+paper,RF (R defaults) (paper),0.15,0.154845,0.136488,0.0
+paper,RF (R defaults) (paper),0.16,0.149717,0.126208,0.0
+paper,RF (R defaults) (paper),0.17,0.144465,0.11568,0.0
+paper,RF (R defaults) (paper),0.18,0.139085,0.104896,0.0
+paper,RF (R defaults) (paper),0.19,0.133572,0.093845,0.0
+paper,RF (R defaults) (paper),0.2,0.127922,0.082518,0.0
+paper,RF (R defaults) (paper),0.21,0.122128,0.070905,0.0
+paper,RF (R defaults) (paper),0.22,0.116186,0.058993,0.0
+paper,RF (R defaults) (paper),0.23,0.110529,0.046772,0.0
+paper,RF (R defaults) (paper),0.24,0.106468,0.03423,0.0
+paper,RF (R defaults) (paper),0.25,0.102298,0.021353,0.0
+paper,RF (R defaults) (paper),0.26,0.098016,0.008128,0.0
+paper,RF (R defaults) (paper),0.27,0.093617,-0.005459,0.0
+paper,RF (R defaults) (paper),0.28,0.089095,-0.019424,0.0
+paper,RF (R defaults) (paper),0.29,0.084446,-0.033782,0.0
+paper,RF (R defaults) (paper),0.3,0.079665,-0.04855,0.0
+paper,RF (R defaults) (paper),0.31,0.074744,-0.063747,0.0
+paper,RF (R defaults) (paper),0.32,0.069679,-0.07939,0.0
+paper,RF (R defaults) (paper),0.33,0.064463,-0.0955,0.0
+paper,RF (R defaults) (paper),0.34,0.06661,-0.112099,0.0
+paper,RF (R defaults) (paper),0.35,0.063314,-0.129208,0.0
+paper,RF (R defaults) (paper),0.36,0.059914,-0.146852,0.0
+paper,RF (R defaults) (paper),0.37,0.056407,-0.165056,0.0
+paper,RF (R defaults) (paper),0.38,0.052786,-0.183847,0.0
+paper,RF (R defaults) (paper),0.39,0.049047,-0.203255,0.0
+paper,RF (R defaults) (paper),0.4,0.045183,-0.223309,0.0
+paper,RF (R defaults) (paper),0.41,0.041189,-0.244043,0.0
+paper,RF (R defaults) (paper),0.42,0.037056,-0.265492,0.0
+paper,RF (R defaults) (paper),0.43,0.032778,-0.287694,0.0
+paper,RF (R defaults) (paper),0.44,0.028348,-0.310688,0.0
+paper,RF (R defaults) (paper),0.45,0.038506,-0.334519,0.0
+paper,RF (R defaults) (paper),0.46,0.035958,-0.359232,0.0
+paper,RF (R defaults) (paper),0.47,0.033313,-0.384878,0.0
+paper,RF (R defaults) (paper),0.48,0.030566,-0.41151,0.0
+paper,RF (R defaults) (paper),0.49,0.027712,-0.439187,0.0
+paper,RF (R defaults) (paper),0.5,0.024743,-0.467971,0.0
+paper,RF (R defaults) (paper),0.51,0.021654,-0.497929,0.0
+paper,RF (R defaults) (paper),0.52,0.018435,-0.529136,0.0
+paper,RF (R defaults) (paper),0.53,0.01508,-0.561671,0.0
+paper,RF (R defaults) (paper),0.54,0.011579,-0.59562,0.0
+paper,RF (R defaults) (paper),0.55,0.007922,-0.631079,0.0
+paper,RF (R defaults) (paper),0.56,0.014501,-0.668148,0.0
+paper,RF (R defaults) (paper),0.57,0.012516,-0.706943,0.0
+paper,RF (R defaults) (paper),0.58,0.010437,-0.747584,0.0
+paper,RF (R defaults) (paper),0.59,0.008256,-0.790208,0.0
+paper,RF (R defaults) (paper),0.6,0.005966,-0.834963,0.0
+paper,XGBoost (paper),0.05,0.229638,0.227384,0.0
+paper,XGBoost (paper),0.06,0.223191,0.219165,0.0
+paper,XGBoost (paper),0.07,0.216738,0.210768,0.0
+paper,XGBoost (paper),0.08,0.210745,0.20219,0.0
+paper,XGBoost (paper),0.09,0.204712,0.193423,0.0
+paper,XGBoost (paper),0.1,0.198696,0.184461,0.0
+paper,XGBoost (paper),0.11,0.192825,0.175297,0.0
+paper,XGBoost (paper),0.12,0.187873,0.165926,0.0
+paper,XGBoost (paper),0.13,0.182248,0.156339,0.0
+paper,XGBoost (paper),0.14,0.177038,0.146529,0.0
+paper,XGBoost (paper),0.15,0.171189,0.136488,0.0
+paper,XGBoost (paper),0.16,0.165263,0.126208,0.0
+paper,XGBoost (paper),0.17,0.159049,0.11568,0.0
+paper,XGBoost (paper),0.18,0.154201,0.104896,0.0
+paper,XGBoost (paper),0.19,0.148654,0.093845,0.0
+paper,XGBoost (paper),0.2,0.143545,0.082518,0.0
+paper,XGBoost (paper),0.21,0.138303,0.070905,0.0
+paper,XGBoost (paper),0.22,0.134685,0.058993,0.0
+paper,XGBoost (paper),0.23,0.130453,0.046772,0.0
+paper,XGBoost (paper),0.24,0.125539,0.03423,0.0
+paper,XGBoost (paper),0.25,0.121108,0.021353,0.0
+paper,XGBoost (paper),0.26,0.116818,0.008128,0.0
+paper,XGBoost (paper),0.27,0.111913,-0.005459,0.0
+paper,XGBoost (paper),0.28,0.107156,-0.019424,0.0
+paper,XGBoost (paper),0.29,0.10402,-0.033782,0.0
+paper,XGBoost (paper),0.3,0.100147,-0.04855,0.0
+paper,XGBoost (paper),0.31,0.097053,-0.063747,0.0
+paper,XGBoost (paper),0.32,0.092823,-0.07939,0.0
+paper,XGBoost (paper),0.33,0.089179,-0.0955,0.0
+paper,XGBoost (paper),0.34,0.08593,-0.112099,0.0
+paper,XGBoost (paper),0.35,0.083288,-0.129208,0.0
+paper,XGBoost (paper),0.36,0.081308,-0.146852,0.0
+paper,XGBoost (paper),0.37,0.076366,-0.165056,0.0
+paper,XGBoost (paper),0.38,0.072577,-0.183847,0.0
+paper,XGBoost (paper),0.39,0.070568,-0.203255,0.0
+paper,XGBoost (paper),0.4,0.066471,-0.223309,0.0
+paper,XGBoost (paper),0.41,0.064788,-0.244043,0.0
+paper,XGBoost (paper),0.42,0.062457,-0.265492,0.0
+paper,XGBoost (paper),0.43,0.060042,-0.287694,0.0
+paper,XGBoost (paper),0.44,0.055634,-0.310688,0.0
+paper,XGBoost (paper),0.45,0.052607,-0.334519,0.0
+paper,XGBoost (paper),0.46,0.050385,-0.359232,0.0
+paper,XGBoost (paper),0.47,0.048444,-0.384878,0.0
+paper,XGBoost (paper),0.48,0.045439,-0.41151,0.0
+paper,XGBoost (paper),0.49,0.043172,-0.439187,0.0
+paper,XGBoost (paper),0.5,0.04176,-0.467971,0.0
+paper,XGBoost (paper),0.51,0.039597,-0.497929,0.0
+paper,XGBoost (paper),0.52,0.038557,-0.529136,0.0
+paper,XGBoost (paper),0.53,0.037126,-0.561671,0.0
+paper,XGBoost (paper),0.54,0.03471,-0.59562,0.0
+paper,XGBoost (paper),0.55,0.033426,-0.631079,0.0
+paper,XGBoost (paper),0.56,0.031002,-0.668148,0.0
+paper,XGBoost (paper),0.57,0.03133,-0.706943,0.0
+paper,XGBoost (paper),0.58,0.029936,-0.747584,0.0
+paper,XGBoost (paper),0.59,0.030165,-0.790208,0.0
+paper,XGBoost (paper),0.6,0.029487,-0.834963,0.0
+paper,SVM (paper),0.05,0.22742,0.227384,0.0
+paper,SVM (paper),0.06,0.219229,0.219165,0.0
+paper,SVM (paper),0.07,0.210673,0.210768,0.0
+paper,SVM (paper),0.08,0.202054,0.20219,0.0
+paper,SVM (paper),0.09,0.192935,0.193423,0.0
+paper,SVM (paper),0.1,0.183711,0.184461,0.0
+paper,SVM (paper),0.11,0.175809,0.175297,0.0
+paper,SVM (paper),0.12,0.169491,0.165926,0.0
+paper,SVM (paper),0.13,0.163299,0.156339,0.0
+paper,SVM (paper),0.14,0.158963,0.146529,0.0
+paper,SVM (paper),0.15,0.155616,0.136488,0.0
+paper,SVM (paper),0.16,0.153261,0.126208,0.0
+paper,SVM (paper),0.17,0.148282,0.11568,0.0
+paper,SVM (paper),0.18,0.143961,0.104896,0.0
+paper,SVM (paper),0.19,0.138216,0.093845,0.0
+paper,SVM (paper),0.2,0.134474,0.082518,0.0
+paper,SVM (paper),0.21,0.12924,0.070905,0.0
+paper,SVM (paper),0.22,0.125341,0.058993,0.0
+paper,SVM (paper),0.23,0.120276,0.046772,0.0
+paper,SVM (paper),0.24,0.115985,0.03423,0.0
+paper,SVM (paper),0.25,0.111165,0.021353,0.0
+paper,SVM (paper),0.26,0.106171,0.008128,0.0
+paper,SVM (paper),0.27,0.101907,-0.005459,0.0
+paper,SVM (paper),0.28,0.097816,-0.019424,0.0
+paper,SVM (paper),0.29,0.093218,-0.033782,0.0
+paper,SVM (paper),0.3,0.089249,-0.04855,0.0
+paper,SVM (paper),0.31,0.086015,-0.063747,0.0
+paper,SVM (paper),0.32,0.082324,-0.07939,0.0
+paper,SVM (paper),0.33,0.07884,-0.0955,0.0
+paper,SVM (paper),0.34,0.07455,-0.112099,0.0
+paper,SVM (paper),0.35,0.071845,-0.129208,0.0
+paper,SVM (paper),0.36,0.06989,-0.146852,0.0
+paper,SVM (paper),0.37,0.06798,-0.165056,0.0
+paper,SVM (paper),0.38,0.064156,-0.183847,0.0
+paper,SVM (paper),0.39,0.062444,-0.203255,0.0
+paper,SVM (paper),0.4,0.060733,-0.223309,0.0
+paper,SVM (paper),0.41,0.058633,-0.244043,0.0
+paper,SVM (paper),0.42,0.055914,-0.265492,0.0
+paper,SVM (paper),0.43,0.054111,-0.287694,0.0
+paper,SVM (paper),0.44,0.05124,-0.310688,0.0
+paper,SVM (paper),0.45,0.048891,-0.334519,0.0
+paper,SVM (paper),0.46,0.046245,-0.359232,0.0
+paper,SVM (paper),0.47,0.04324,-0.384878,0.0
+paper,SVM (paper),0.48,0.039105,-0.41151,0.0
+paper,SVM (paper),0.49,0.037937,-0.439187,0.0
+paper,SVM (paper),0.5,0.036284,-0.467971,0.0
+paper,SVM (paper),0.51,0.033366,-0.497929,0.0
+paper,SVM (paper),0.52,0.032355,-0.529136,0.0
+paper,SVM (paper),0.53,0.029927,-0.561671,0.0
+paper,SVM (paper),0.54,0.029319,-0.59562,0.0
+paper,SVM (paper),0.55,0.027503,-0.631079,0.0
+paper,SVM (paper),0.56,0.025615,-0.668148,0.0
+paper,SVM (paper),0.57,0.023856,-0.706943,0.0
+paper,SVM (paper),0.58,0.023966,-0.747584,0.0
+paper,SVM (paper),0.59,0.02179,-0.790208,0.0
+paper,SVM (paper),0.6,0.019609,-0.834963,0.0
+paper,LR (unpenalised),0.05,0.231167,0.227384,0.0
+paper,LR (unpenalised),0.06,0.224785,0.219165,0.0
+paper,LR (unpenalised),0.07,0.218954,0.210768,0.0
+paper,LR (unpenalised),0.08,0.212361,0.20219,0.0
+paper,LR (unpenalised),0.09,0.206845,0.193423,0.0
+paper,LR (unpenalised),0.1,0.200348,0.184461,0.0
+paper,LR (unpenalised),0.11,0.193402,0.175297,0.0
+paper,LR (unpenalised),0.12,0.186561,0.165926,0.0
+paper,LR (unpenalised),0.13,0.180573,0.156339,0.0
+paper,LR (unpenalised),0.14,0.175061,0.146529,0.0
+paper,LR (unpenalised),0.15,0.170453,0.136488,0.0
+paper,LR (unpenalised),0.16,0.1653,0.126208,0.0
+paper,LR (unpenalised),0.17,0.159844,0.11568,0.0
+paper,LR (unpenalised),0.18,0.154492,0.104896,0.0
+paper,LR (unpenalised),0.19,0.1493,0.093845,0.0
+paper,LR (unpenalised),0.2,0.143839,0.082518,0.0
+paper,LR (unpenalised),0.21,0.139706,0.070905,0.0
+paper,LR (unpenalised),0.22,0.135234,0.058993,0.0
+paper,LR (unpenalised),0.23,0.1324,0.046772,0.0
+paper,LR (unpenalised),0.24,0.128385,0.03423,0.0
+paper,LR (unpenalised),0.25,0.124271,0.021353,0.0
+paper,LR (unpenalised),0.26,0.120256,0.008128,0.0
+paper,LR (unpenalised),0.27,0.116491,-0.005459,0.0
+paper,LR (unpenalised),0.28,0.113399,-0.019424,0.0
+paper,LR (unpenalised),0.29,0.10988,-0.033782,0.0
+paper,LR (unpenalised),0.3,0.10723,-0.04855,0.0
+paper,LR (unpenalised),0.31,0.10323,-0.063747,0.0
+paper,LR (unpenalised),0.32,0.100319,-0.07939,0.0
+paper,LR (unpenalised),0.33,0.095881,-0.0955,0.0
+paper,LR (unpenalised),0.34,0.09114,-0.112099,0.0
+paper,LR (unpenalised),0.35,0.086959,-0.129208,0.0
+paper,LR (unpenalised),0.36,0.08324,-0.146852,0.0
+paper,LR (unpenalised),0.37,0.079598,-0.165056,0.0
+paper,LR (unpenalised),0.38,0.077012,-0.183847,0.0
+paper,LR (unpenalised),0.39,0.072849,-0.203255,0.0
+paper,LR (unpenalised),0.4,0.069046,-0.223309,0.0
+paper,LR (unpenalised),0.41,0.066746,-0.244043,0.0
+paper,LR (unpenalised),0.42,0.064396,-0.265492,0.0
+paper,LR (unpenalised),0.43,0.06176,-0.287694,0.0
+paper,LR (unpenalised),0.44,0.059225,-0.310688,0.0
+paper,LR (unpenalised),0.45,0.055995,-0.334519,0.0
+paper,LR (unpenalised),0.46,0.054413,-0.359232,0.0
+paper,LR (unpenalised),0.47,0.051605,-0.384878,0.0
+paper,LR (unpenalised),0.48,0.048418,-0.41151,0.0
+paper,LR (unpenalised),0.49,0.046255,-0.439187,0.0
+paper,LR (unpenalised),0.5,0.044499,-0.467971,0.0
+paper,LR (unpenalised),0.51,0.042128,-0.497929,0.0
+paper,LR (unpenalised),0.52,0.040652,-0.529136,0.0
+paper,LR (unpenalised),0.53,0.040404,-0.561671,0.0
+paper,LR (unpenalised),0.54,0.041297,-0.59562,0.0
+paper,LR (unpenalised),0.55,0.039663,-0.631079,0.0
+paper,LR (unpenalised),0.56,0.037848,-0.668148,0.0
+paper,LR (unpenalised),0.57,0.036254,-0.706943,0.0
+paper,LR (unpenalised),0.58,0.033904,-0.747584,0.0
+paper,LR (unpenalised),0.59,0.031005,-0.790208,0.0
+paper,LR (unpenalised),0.6,0.028557,-0.834963,0.0
+tuned,RF (tuned),0.05,0.228532,0.227384,0.0
+tuned,RF (tuned),0.06,0.220958,0.219165,0.0
+tuned,RF (tuned),0.07,0.213814,0.210768,0.0
+tuned,RF (tuned),0.08,0.207365,0.20219,0.0
+tuned,RF (tuned),0.09,0.201212,0.193423,0.0
+tuned,RF (tuned),0.1,0.195523,0.184461,0.0
+tuned,RF (tuned),0.11,0.189909,0.175297,0.0
+tuned,RF (tuned),0.12,0.185361,0.165926,0.0
+tuned,RF (tuned),0.13,0.180042,0.156339,0.0
+tuned,RF (tuned),0.14,0.174759,0.146529,0.0
+tuned,RF (tuned),0.15,0.169412,0.136488,0.0
+tuned,RF (tuned),0.16,0.16536,0.126208,0.0
+tuned,RF (tuned),0.17,0.15928,0.11568,0.0
+tuned,RF (tuned),0.18,0.155489,0.104896,0.0
+tuned,RF (tuned),0.19,0.151496,0.093845,0.0
+tuned,RF (tuned),0.2,0.147311,0.082518,0.0
+tuned,RF (tuned),0.21,0.143805,0.070905,0.0
+tuned,RF (tuned),0.22,0.140809,0.058993,0.0
+tuned,RF (tuned),0.23,0.136204,0.046772,0.0
+tuned,RF (tuned),0.24,0.130398,0.03423,0.0
+tuned,RF (tuned),0.25,0.12476,0.021353,0.0
+tuned,RF (tuned),0.26,0.120508,0.008128,0.0
+tuned,RF (tuned),0.27,0.11476,-0.005459,0.0
+tuned,RF (tuned),0.28,0.11034,-0.019424,0.0
+tuned,RF (tuned),0.29,0.104705,-0.033782,0.0
+tuned,RF (tuned),0.3,0.10044,-0.04855,0.0
+tuned,RF (tuned),0.31,0.095228,-0.063747,0.0
+tuned,RF (tuned),0.32,0.090493,-0.07939,0.0
+tuned,RF (tuned),0.33,0.08759,-0.0955,0.0
+tuned,RF (tuned),0.34,0.08433,-0.112099,0.0
+tuned,RF (tuned),0.35,0.082422,-0.129208,0.0
+tuned,RF (tuned),0.36,0.07761,-0.146852,0.0
+tuned,RF (tuned),0.37,0.074318,-0.165056,0.0
+tuned,RF (tuned),0.38,0.071785,-0.183847,0.0
+tuned,RF (tuned),0.39,0.069183,-0.203255,0.0
+tuned,RF (tuned),0.4,0.066243,-0.223309,0.0
+tuned,RF (tuned),0.41,0.062321,-0.244043,0.0
+tuned,RF (tuned),0.42,0.060437,-0.265492,0.0
+tuned,RF (tuned),0.43,0.057005,-0.287694,0.0
+tuned,RF (tuned),0.44,0.052672,-0.310688,0.0
+tuned,RF (tuned),0.45,0.049246,-0.334519,0.0
+tuned,RF (tuned),0.46,0.047625,-0.359232,0.0
+tuned,RF (tuned),0.47,0.045381,-0.384878,0.0
+tuned,RF (tuned),0.48,0.042031,-0.41151,0.0
+tuned,RF (tuned),0.49,0.039131,-0.439187,0.0
+tuned,RF (tuned),0.5,0.038631,-0.467971,0.0
+tuned,RF (tuned),0.51,0.034723,-0.497929,0.0
+tuned,RF (tuned),0.52,0.033015,-0.529136,0.0
+tuned,RF (tuned),0.53,0.031127,-0.561671,0.0
+tuned,RF (tuned),0.54,0.029914,-0.59562,0.0
+tuned,RF (tuned),0.55,0.028623,-0.631079,0.0
+tuned,RF (tuned),0.56,0.027135,-0.668148,0.0
+tuned,RF (tuned),0.57,0.023806,-0.706943,0.0
+tuned,RF (tuned),0.58,0.022778,-0.747584,0.0
+tuned,RF (tuned),0.59,0.021671,-0.790208,0.0
+tuned,RF (tuned),0.6,0.019267,-0.834963,0.0
+tuned,XGBoost (tuned),0.05,0.229808,0.227384,0.0
+tuned,XGBoost (tuned),0.06,0.223083,0.219165,0.0
+tuned,XGBoost (tuned),0.07,0.216909,0.210768,0.0
+tuned,XGBoost (tuned),0.08,0.210482,0.20219,0.0
+tuned,XGBoost (tuned),0.09,0.204805,0.193423,0.0
+tuned,XGBoost (tuned),0.1,0.19824,0.184461,0.0
+tuned,XGBoost (tuned),0.11,0.193212,0.175297,0.0
+tuned,XGBoost (tuned),0.12,0.188424,0.165926,0.0
+tuned,XGBoost (tuned),0.13,0.182863,0.156339,0.0
+tuned,XGBoost (tuned),0.14,0.176665,0.146529,0.0
+tuned,XGBoost (tuned),0.15,0.170792,0.136488,0.0
+tuned,XGBoost (tuned),0.16,0.165151,0.126208,0.0
+tuned,XGBoost (tuned),0.17,0.159802,0.11568,0.0
+tuned,XGBoost (tuned),0.18,0.154318,0.104896,0.0
+tuned,XGBoost (tuned),0.19,0.149388,0.093845,0.0
+tuned,XGBoost (tuned),0.2,0.144205,0.082518,0.0
+tuned,XGBoost (tuned),0.21,0.13915,0.070905,0.0
+tuned,XGBoost (tuned),0.22,0.134306,0.058993,0.0
+tuned,XGBoost (tuned),0.23,0.130177,0.046772,0.0
+tuned,XGBoost (tuned),0.24,0.125322,0.03423,0.0
+tuned,XGBoost (tuned),0.25,0.121337,0.021353,0.0
+tuned,XGBoost (tuned),0.26,0.117706,0.008128,0.0
+tuned,XGBoost (tuned),0.27,0.11322,-0.005459,0.0
+tuned,XGBoost (tuned),0.28,0.109367,-0.019424,0.0
+tuned,XGBoost (tuned),0.29,0.10517,-0.033782,0.0
+tuned,XGBoost (tuned),0.3,0.100733,-0.04855,0.0
+tuned,XGBoost (tuned),0.31,0.097933,-0.063747,0.0
+tuned,XGBoost (tuned),0.32,0.094233,-0.07939,0.0
+tuned,XGBoost (tuned),0.33,0.091081,-0.0955,0.0
+tuned,XGBoost (tuned),0.34,0.087498,-0.112099,0.0
+tuned,XGBoost (tuned),0.35,0.085131,-0.129208,0.0
+tuned,XGBoost (tuned),0.36,0.081754,-0.146852,0.0
+tuned,XGBoost (tuned),0.37,0.078156,-0.165056,0.0
+tuned,XGBoost (tuned),0.38,0.074754,-0.183847,0.0
+tuned,XGBoost (tuned),0.39,0.071844,-0.203255,0.0
+tuned,XGBoost (tuned),0.4,0.067938,-0.223309,0.0
+tuned,XGBoost (tuned),0.41,0.065547,-0.244043,0.0
+tuned,XGBoost (tuned),0.42,0.062787,-0.265492,0.0
+tuned,XGBoost (tuned),0.43,0.058484,-0.287694,0.0
+tuned,XGBoost (tuned),0.44,0.055138,-0.310688,0.0
+tuned,XGBoost (tuned),0.45,0.052527,-0.334519,0.0
+tuned,XGBoost (tuned),0.46,0.049595,-0.359232,0.0
+tuned,XGBoost (tuned),0.47,0.047669,-0.384878,0.0
+tuned,XGBoost (tuned),0.48,0.045198,-0.41151,0.0
+tuned,XGBoost (tuned),0.49,0.043644,-0.439187,0.0
+tuned,XGBoost (tuned),0.5,0.040587,-0.467971,0.0
+tuned,XGBoost (tuned),0.51,0.037681,-0.497929,0.0
+tuned,XGBoost (tuned),0.52,0.036781,-0.529136,0.0
+tuned,XGBoost (tuned),0.53,0.035713,-0.561671,0.0
+tuned,XGBoost (tuned),0.54,0.033095,-0.59562,0.0
+tuned,XGBoost (tuned),0.55,0.032763,-0.631079,0.0
+tuned,XGBoost (tuned),0.56,0.03134,-0.668148,0.0
+tuned,XGBoost (tuned),0.57,0.029849,-0.706943,0.0
+tuned,XGBoost (tuned),0.58,0.029289,-0.747584,0.0
+tuned,XGBoost (tuned),0.59,0.028615,-0.790208,0.0
+tuned,XGBoost (tuned),0.6,0.028557,-0.834963,0.0
+tuned,SVM (tuned),0.05,0.229088,0.227384,0.0
+tuned,SVM (tuned),0.06,0.22291,0.219165,0.0
+tuned,SVM (tuned),0.07,0.21778,0.210768,0.0
+tuned,SVM (tuned),0.08,0.211991,0.20219,0.0
+tuned,SVM (tuned),0.09,0.206067,0.193423,0.0
+tuned,SVM (tuned),0.1,0.199435,0.184461,0.0
+tuned,SVM (tuned),0.11,0.194125,0.175297,0.0
+tuned,SVM (tuned),0.12,0.188491,0.165926,0.0
+tuned,SVM (tuned),0.13,0.182292,0.156339,0.0
+tuned,SVM (tuned),0.14,0.176323,0.146529,0.0
+tuned,SVM (tuned),0.15,0.171161,0.136488,0.0
+tuned,SVM (tuned),0.16,0.165421,0.126208,0.0
+tuned,SVM (tuned),0.17,0.159841,0.11568,0.0
+tuned,SVM (tuned),0.18,0.155139,0.104896,0.0
+tuned,SVM (tuned),0.19,0.15064,0.093845,0.0
+tuned,SVM (tuned),0.2,0.146161,0.082518,0.0
+tuned,SVM (tuned),0.21,0.141606,0.070905,0.0
+tuned,SVM (tuned),0.22,0.136345,0.058993,0.0
+tuned,SVM (tuned),0.23,0.131694,0.046772,0.0
+tuned,SVM (tuned),0.24,0.127958,0.03423,0.0
+tuned,SVM (tuned),0.25,0.123521,0.021353,0.0
+tuned,SVM (tuned),0.26,0.119781,0.008128,0.0
+tuned,SVM (tuned),0.27,0.115275,-0.005459,0.0
+tuned,SVM (tuned),0.28,0.111165,-0.019424,0.0
+tuned,SVM (tuned),0.29,0.107803,-0.033782,0.0
+tuned,SVM (tuned),0.3,0.103975,-0.04855,0.0
+tuned,SVM (tuned),0.31,0.100597,-0.063747,0.0
+tuned,SVM (tuned),0.32,0.09696,-0.07939,0.0
+tuned,SVM (tuned),0.33,0.092861,-0.0955,0.0
+tuned,SVM (tuned),0.34,0.089332,-0.112099,0.0
+tuned,SVM (tuned),0.35,0.085003,-0.129208,0.0
+tuned,SVM (tuned),0.36,0.08143,-0.146852,0.0
+tuned,SVM (tuned),0.37,0.07901,-0.165056,0.0
+tuned,SVM (tuned),0.38,0.074873,-0.183847,0.0
+tuned,SVM (tuned),0.39,0.070614,-0.203255,0.0
+tuned,SVM (tuned),0.4,0.068394,-0.223309,0.0
+tuned,SVM (tuned),0.41,0.064524,-0.244043,0.0
+tuned,SVM (tuned),0.42,0.060373,-0.265492,0.0
+tuned,SVM (tuned),0.43,0.058198,-0.287694,0.0
+tuned,SVM (tuned),0.44,0.054963,-0.310688,0.0
+tuned,SVM (tuned),0.45,0.053514,-0.334519,0.0
+tuned,SVM (tuned),0.46,0.051529,-0.359232,0.0
+tuned,SVM (tuned),0.47,0.049047,-0.384878,0.0
+tuned,SVM (tuned),0.48,0.046364,-0.41151,0.0
+tuned,SVM (tuned),0.49,0.045321,-0.439187,0.0
+tuned,SVM (tuned),0.5,0.043032,-0.467971,0.0
+tuned,SVM (tuned),0.51,0.041495,-0.497929,0.0
+tuned,SVM (tuned),0.52,0.038981,-0.529136,0.0
+tuned,SVM (tuned),0.53,0.03716,-0.561671,0.0
+tuned,SVM (tuned),0.54,0.035501,-0.59562,0.0
+tuned,SVM (tuned),0.55,0.035566,-0.631079,0.0
+tuned,SVM (tuned),0.56,0.034248,-0.668148,0.0
+tuned,SVM (tuned),0.57,0.032788,-0.706943,0.0
+tuned,SVM (tuned),0.58,0.030118,-0.747584,0.0
+tuned,SVM (tuned),0.59,0.027992,-0.790208,0.0
+tuned,SVM (tuned),0.6,0.025086,-0.834963,0.0
+tuned,LR (L2),0.05,0.2297,0.227384,0.0
+tuned,LR (L2),0.06,0.222989,0.219165,0.0
+tuned,LR (L2),0.07,0.217281,0.210768,0.0
+tuned,LR (L2),0.08,0.2118,0.20219,0.0
+tuned,LR (L2),0.09,0.206655,0.193423,0.0
+tuned,LR (L2),0.1,0.201043,0.184461,0.0
+tuned,LR (L2),0.11,0.19552,0.175297,0.0
+tuned,LR (L2),0.12,0.189744,0.165926,0.0
+tuned,LR (L2),0.13,0.183244,0.156339,0.0
+tuned,LR (L2),0.14,0.177115,0.146529,0.0
+tuned,LR (L2),0.15,0.171195,0.136488,0.0
+tuned,LR (L2),0.16,0.165421,0.126208,0.0
+tuned,LR (L2),0.17,0.161684,0.11568,0.0
+tuned,LR (L2),0.18,0.156372,0.104896,0.0
+tuned,LR (L2),0.19,0.152968,0.093845,0.0
+tuned,LR (L2),0.2,0.148826,0.082518,0.0
+tuned,LR (L2),0.21,0.143401,0.070905,0.0
+tuned,LR (L2),0.22,0.139199,0.058993,0.0
+tuned,LR (L2),0.23,0.135071,0.046772,0.0
+tuned,LR (L2),0.24,0.130254,0.03423,0.0
+tuned,LR (L2),0.25,0.125933,0.021353,0.0
+tuned,LR (L2),0.26,0.121813,0.008128,0.0
+tuned,LR (L2),0.27,0.117623,-0.005459,0.0
+tuned,LR (L2),0.28,0.113328,-0.019424,0.0
+tuned,LR (L2),0.29,0.109159,-0.033782,0.0
+tuned,LR (L2),0.3,0.105679,-0.04855,0.0
+tuned,LR (L2),0.31,0.101252,-0.063747,0.0
+tuned,LR (L2),0.32,0.09593,-0.07939,0.0
+tuned,LR (L2),0.33,0.092961,-0.0955,0.0
+tuned,LR (L2),0.34,0.088929,-0.112099,0.0
+tuned,LR (L2),0.35,0.085116,-0.129208,0.0
+tuned,LR (L2),0.36,0.081235,-0.146852,0.0
+tuned,LR (L2),0.37,0.077526,-0.165056,0.0
+tuned,LR (L2),0.38,0.073627,-0.183847,0.0
+tuned,LR (L2),0.39,0.070554,-0.203255,0.0
+tuned,LR (L2),0.4,0.067547,-0.223309,0.0
+tuned,LR (L2),0.41,0.065358,-0.244043,0.0
+tuned,LR (L2),0.42,0.063786,-0.265492,0.0
+tuned,LR (L2),0.43,0.061221,-0.287694,0.0
+tuned,LR (L2),0.44,0.05854,-0.310688,0.0
+tuned,LR (L2),0.45,0.057328,-0.334519,0.0
+tuned,LR (L2),0.46,0.054913,-0.359232,0.0
+tuned,LR (L2),0.47,0.05448,-0.384878,0.0
+tuned,LR (L2),0.48,0.052654,-0.41151,0.0
+tuned,LR (L2),0.49,0.052133,-0.439187,0.0
+tuned,LR (L2),0.5,0.049487,-0.467971,0.0
+tuned,LR (L2),0.51,0.046315,-0.497929,0.0
+tuned,LR (L2),0.52,0.044401,-0.529136,0.0
+tuned,LR (L2),0.53,0.041956,-0.561671,0.0
+tuned,LR (L2),0.54,0.039111,-0.59562,0.0
+tuned,LR (L2),0.55,0.036294,-0.631079,0.0
+tuned,LR (L2),0.56,0.034114,-0.668148,0.0
+tuned,LR (L2),0.57,0.03146,-0.706943,0.0
+tuned,LR (L2),0.58,0.028683,-0.747584,0.0
+tuned,LR (L2),0.59,0.026139,-0.790208,0.0
+tuned,LR (L2),0.6,0.02401,-0.834963,0.0

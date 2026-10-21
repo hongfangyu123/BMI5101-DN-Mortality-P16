@@ -1,0 +1,20 @@
+source_project: ../dn_mortality_repro_V3/dn_mortality_repro
+seeds: [42, 43, 44, 45, 46]
+outer_folds: 10
+inner_tune_folds: 5
+inner_lasso_folds: 10
+lasso_lambdas: 100
+stack_folds: 5
+jobs: 2
+missing_threshold: 0.20
+embedding_components: 32
+embedding_min_df: 10
+experiments:
+  - static_lr
+  - static_rf
+  - static_xgb
+  - static_stacking
+  - temporal_lr
+  - burden_lr
+  - embedding_lr
+  - combined_stacking

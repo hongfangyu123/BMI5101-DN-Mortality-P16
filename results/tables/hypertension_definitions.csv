@@ -1,0 +1,5 @@
+definition,n,pct_all,pct_survivors,pct_deaths,mortality_pct,or_death,or_lo,or_hi,p_chi2
+"full Quan-Elixhauser (401–405 / I10–I13, I15, I16) — main analysis",1658,84.5918,84.3793,85.2227,25.392,1.0676,0.8023,1.4207,0.6534
+"uncomplicated only (401 / I10) — sensitivity, ≈ paper",694,35.4082,39.2224,24.0891,17.147,0.4917,0.3902,0.6197,0.0
+complicated codes without 401/I10 (coded 'no' by the uncomplicated definition),964,49.1837,45.1569,61.1336,31.3278,1.9103,1.5514,2.3523,0.0
+no hypertension code,302,15.4082,15.6207,14.7773,24.1722,0.9366,0.7039,1.2464,0.6534

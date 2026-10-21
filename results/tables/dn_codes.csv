@@ -1,0 +1,15 @@
+code,icd_version,long_title,n_admissions,n_patients
+24960,9,"Secondary diabetes mellitus with neurological manifestations, not stated as uncontrolled, or unspecified",23,17
+24961,9,"Secondary diabetes mellitus with neurological manifestations, uncontrolled",5,3
+25060,9,"Diabetes with neurological manifestations, type II or unspecified type, not stated as uncontrolled",6996,3172
+25061,9,"Diabetes with neurological manifestations, type I [juvenile type], not stated as uncontrolled",1818,584
+25062,9,"Diabetes with neurological manifestations, type II or unspecified type, uncontrolled",1571,1069
+25063,9,"Diabetes with neurological manifestations, type I [juvenile type], uncontrolled",1121,394
+E1040,10,"Type 1 diabetes mellitus with diabetic neuropathy, unspecified",957,460
+E1042,10,Type 1 diabetes mellitus with diabetic polyneuropathy,494,286
+E1043,10,Type 1 diabetes mellitus with diabetic autonomic (poly)neuropathy,951,285
+E1140,10,"Type 2 diabetes mellitus with diabetic neuropathy, unspecified",6395,3580
+E1141,10,Type 2 diabetes mellitus with diabetic mononeuropathy,26,24
+E1142,10,Type 2 diabetes mellitus with diabetic polyneuropathy,3994,2394
+E1143,10,Type 2 diabetes mellitus with diabetic autonomic (poly)neuropathy,1199,566
+E1149,10,Type 2 diabetes mellitus with other diabetic neurological complication,25,19

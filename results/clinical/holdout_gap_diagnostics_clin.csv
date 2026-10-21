@@ -1,0 +1,12 @@
+item,value
+apparent_auroc_train_lr_l2,0.8171611082807541
+oof_subsample_auroc_mean,0.8002695048498123
+oof_subsample_auroc_sd,0.021488737244585797
+oof_subsample_auroc_p2.5,0.7554946612953691
+oof_subsample_p_le_holdout_auroc,0.014
+oof_subsample_n_draws,10000
+smd_max_abs,0.11142616049389217
+smd_max_abs_feature,calcium_min
+smd_n_abs_gt_0.1,3
+smd_features_abs_gt_0.1,"calcium_min, lods, rdw_mean"
+smd_n_features,22

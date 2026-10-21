@@ -1,0 +1,3 @@
+split,n,deaths,mortality
+train,2045,544,0.266
+valid,512,136,0.2656

@@ -1,0 +1,68 @@
+{
+  "options": {
+    "source_project": "../../dn_mortality_repro_V3/dn_mortality_repro",
+    "seeds": [
+      42,
+      43,
+      44,
+      45,
+      46
+    ],
+    "outer_folds": 10,
+    "inner_lasso_folds": 5,
+    "lasso_lambdas": 30,
+    "stack_folds": 3,
+    "jobs": 2,
+    "missing_threshold": 0.2,
+    "embedding_components": 32,
+    "embedding_min_df": 10,
+    "fixed_parameters": {
+      "LR": {
+        "C": 1.0
+      },
+      "RF": {
+        "n_estimators": 200,
+        "max_depth": 10,
+        "min_samples_leaf": 10,
+        "max_features": "sqrt"
+      },
+      "XGBoost": {
+        "n_estimators": 100,
+        "max_depth": 2,
+        "learning_rate": 0.1,
+        "subsample": 0.8,
+        "colsample_bytree": 0.6
+      }
+    },
+    "experiments": [
+      "static_lr",
+      "static_rf",
+      "static_xgb",
+      "static_stacking",
+      "temporal_lr",
+      "burden_lr",
+      "embedding_lr",
+      "combined_stacking"
+    ],
+    "profile": "full",
+    "method": "balanced_fixed_parameters",
+    "hyperparameter_tuning": false
+  },
+  "data_sha256": "09024f28b80fb357ae6d0354f5b8be4bb491929f2c62089a81bc5a7c789c371f",
+  "code_sha256": "fe1d0da69caf22eb8919e2da4ffa5ee3ff79feba915abebb52c779e556c5f89c",
+  "platform": "linux",
+  "python": "3.11.16",
+  "software_versions": {
+    "numpy": "2.4.6",
+    "pandas": "3.0.6",
+    "scipy": "1.17.1",
+    "scikit-learn": "1.9.1",
+    "xgboost": "3.4.2",
+    "duckdb": "1.5.6",
+    "joblib": "1.6.0"
+  },
+  "n_development": 2045,
+  "events_development": 544,
+  "synthetic": false,
+  "holdout_labels_loaded": false
+}

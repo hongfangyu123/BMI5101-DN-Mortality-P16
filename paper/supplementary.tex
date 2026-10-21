@@ -1,0 +1,54 @@
+\hypertarget{supplementary-material}{%
+\section{Supplementary material}\label{supplementary-material}}
+
+\begin{itemize}
+\tightlist
+\item
+  \textbf{S1. Four cohort definitions.} Four readings of ``first ICU
+  admission at first hospitalization'', with counts and one-year
+  mortality.
+\item
+  \textbf{S2. Reference cohort: complete results.} Nested
+  cross-validation of all nine configurations, LASSO selection
+  frequencies, the model-selection steps, the secondary held-out
+  estimate, thresholds, decision curves, coefficients and SHAP.
+\item
+  \textbf{S3. Full baseline tables} of the reference and landmark
+  cohorts.
+\item
+  \textbf{S4. Comparison with the benchmark's Table 1} and the
+  mixed-unit diagnostic for the white-cell differential.
+\item
+  \textbf{S5. Hypertension definitions} and their associations with
+  one-year death.
+\item
+  \textbf{S6. LASSO cross-validation curve and coefficient path.}
+\item
+  \textbf{S7. Exploratory single-split results} (all models, paired
+  DeLong comparisons, thresholds, calibration, LASSO-only nesting).
+\item
+  \textbf{S8. Comorbidity-timing recode}: acute codes removed and
+  changes in each comorbidity.
+\item
+  \textbf{S9. Implementation details.} Global random seed 42 and repeat
+  seeds; LASSO implementation (λ grid of 100 values from
+  \(\lambda_{\max} = \max_j \lvert\mathbf{x}_j^\top(\mathbf{y} - \bar y)\rvert / n\)
+  down to \(10^{-4}\lambda_{\max}\); liblinear intercept feature set to
+  1,000 so that the intercept penalty is negligible; binomial deviance
+  as the criterion, whereas the benchmark's text names mean squared
+  error but its figure shows binomial deviance); the benchmark's
+  hyperparameters and their mapping to scikit-learn and xgboost; all
+  tuning grids.
+\item
+  \textbf{S10. Benchmark-style versus leakage-free preprocessing}: LASSO
+  selection, validation AUROC and SHAP.
+\item
+  \textbf{S11. Code availability and reproducibility}: pipeline scripts,
+  seeds and the frozen-model specification.
+\item
+  \textbf{S12. Exploratory extensions: complete results.} All 14 models
+  (LR, RF, XGBoost and stacking with static, trajectory, burden and
+  embedding inputs), all 45 paired comparisons, pooled out-of-fold
+  calibration, decision-curve comparisons and trajectory-feature
+  selection frequencies.
+\end{itemize}

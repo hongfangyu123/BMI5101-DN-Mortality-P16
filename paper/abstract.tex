@@ -1,0 +1,38 @@
+\textbf{Background.} \textcite{huang2025} built machine-learning models
+for mortality in intensive care unit (ICU) patients with diabetic
+neuropathy (DN) from MIMIC-IV. After LASSO selection of 12 of 55
+candidate predictors, random forest (RF) outperformed XGBoost, support
+vector machine and logistic regression (LR) (validation AUC 0.780).
+However, inclusion used information from after the first ICU day, the
+outcome was not consistently defined, and models were chosen on one
+263-patient validation set with selection and tuning outside
+cross-validation.
+
+\textbf{Methods.} Keeping the benchmark's framework, we used MIMIC-IV
+v3.1 to build a landmark model predicting at 24 h after ICU admission
+from information then available. We retained patients without a
+white-cell differential, separated chronic from acute comorbidity codes
+and defined death within 365 days. Models were evaluated by 5 × 10
+repeated nested cross-validation with imputation, LASSO and tuning
+inside each fold, and chosen by a pre-specified rule; the selected model
+was frozen and evaluated once on a held-out set. A reference cohort with
+the benchmark's criteria tested the original pipeline. As exploratory
+extensions, first-day trajectory features, prior-diagnosis embeddings
+and stacking were compared on the development set.
+
+\textbf{Results.} In the reference cohort, the benchmark's RF reproduced
+its training AUC of 0.999 but reached only 0.724--0.767 under nested
+cross-validation, against 0.791 for the best model. In the landmark
+cohort (2,557 patients, 26.6\% mortality), six configurations were
+equivalent and L2-penalised LR was selected (nested-CV AUROC 0.801). Its
+nested-CV AUPRC was 0.594 (prevalence 0.266). On the 512-patient
+held-out set its AUROC was 0.750 (95\% CI 0.702--0.797), its AUPRC 0.533
+(0.459--0.611) and its calibration slope 0.82. Red cell distribution
+width, Charlson comorbidity index and age were the leading predictors.
+Stacking raised AUROC by 0.005 over LR (95\% CI $-$0.001 to 0.011), and
+trajectory features and diagnosis embeddings gave no gain.
+
+\textbf{Conclusions.} Under leakage-free evaluation, LR matches tree
+ensembles and the benchmark's RF advantage is not supported. The
+landmark model can be applied at a defined time but needs local
+recalibration before use.

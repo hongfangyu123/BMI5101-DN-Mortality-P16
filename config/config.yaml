@@ -1,0 +1,37 @@
+# Global configuration for dn_mortality_repro
+seed: 42
+
+paths:
+  mimic_root: ~/Desktop/mimic-iv-3.1    # read-only raw data (v3.1); the environment variable MIMIC_ROOT takes precedence
+  mimic_code: external/mimic-code                        # MIT-LCP/mimic-code clone (commit in external/MIMIC_CODE_COMMIT.txt)
+  subset_db: data/interim/mimic_subset.duckdb            # cohort-only DuckDB (patient-level, git-ignored)
+  duckdb_tmp: data/interim/duckdb_tmp
+  interim: data/interim
+  processed: data/processed
+  tables: results/tables
+  figures: results/figures
+
+duckdb:
+  memory_limit: 4GB        # machine has 8 GB RAM
+  threads: 6
+
+cohort:
+  dn_icd9: ['24960', '24961', '25060', '25061', '25062', '25063']
+  dn_icd10: ['E1040', 'E1042', 'E1043', 'E1140', 'E1141', 'E1142', 'E1143', 'E1149']
+  min_hosp_los_hours: 48
+  min_age_replication: 18   # replication line: age > 18 (strict, paper)
+  min_age_clinical: 18      # clinical line (CLIN): age >= 18
+  # first-day window (mimic-code convention): labs [intime-6h, intime+24h]
+  lab_window_pre_hours: 6
+  lab_window_post_hours: 24
+  outcome_horizon_days: 365
+
+model:
+  test_size: 0.2
+  cv_folds: 10
+
+nested_cv:                 # stage 8c full nested CV (decisions.md D8.5)
+  seeds: [42, 43, 44, 45, 46]   # one outer split per repeat
+  outer_folds: 10
+  inner_lasso_folds: 10
+  inner_tune_folds: 5

@@ -1,0 +1,7 @@
+{
+  "n_development": 2045,
+  "events_development": 544,
+  "holdout_labels_loaded": false,
+  "temporal_window": "ICU intime <= charttime <= intime + 24h; same hadm_id/stay_id",
+  "history_window": "previous admission dischtime < index admittime"
+}

@@ -1,0 +1,5 @@
+definition,n,deaths_old_definition,deaths_new_definition,dod_before_icu_date,deathtime_before_icu_date,inhosp_death_after_365d,inhosp_flag_dod_missing,inhosp_flag_deathtime_missing,deathtime_without_inhosp_flag,dod_ne_deathtime_date,old1_new0,old0_new1,disagree_total
+A,837,189,189,0,0,0,0,0,0,0,0,0,0
+B,1228,283,283,0,0,0,0,0,0,0,0,0,0
+C,1960,494,494,0,0,0,0,1,0,0,0,0,0
+D,1685,400,400,0,0,0,0,1,0,0,0,0,0

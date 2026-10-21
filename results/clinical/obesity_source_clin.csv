@@ -1,0 +1,7 @@
+group,n,deaths,mortality
+obesity = 1 (CLIN rule: prior ∪ index),859,195,0.227008
+obesity = 1 in prior admissions,443,117,0.264108
+obesity = 1 only from the index admission,416,78,0.1875
+obesity = 0 (CLIN rule),1698,485,0.28563
+  among patients with a prior admission: obesity = 1 only from the index admission,119,27,0.226891
+  among patients with a prior admission: obesity = 1 in prior admissions,443,117,0.264108

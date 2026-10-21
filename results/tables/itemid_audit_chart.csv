@@ -1,0 +1,12 @@
+itemid,label,category,unitname,n_rows,p01,p50,p99
+220045,Heart Rate,Routine Vital Signs,bpm,626476,50.0,83.0,132.0
+220052,Arterial Blood Pressure mean,Routine Vital Signs,mmHg,203865,47.0,74.0,123.0
+220181,Non Invasive Blood Pressure mean,Routine Vital Signs,mmHg,403228,46.0,77.0,126.0
+220210,Respiratory Rate,Respiratory,insp/min,618657,7.0,19.0,36.0
+220739,GCS - Eye Opening,Neurological,,134818,1.0,4.0,4.0
+223761,Temperature Fahrenheit,Routine Vital Signs,°F,142650,95.8,98.3,102.0
+223762,Temperature Celsius,Routine Vital Signs,°C,35511,34.2,36.9,39.0
+223900,GCS - Verbal Response,Neurological,,134487,1.0,4.0,5.0
+223901,GCS - Motor Response,Neurological,,134163,1.0,6.0,6.0
+224690,Respiratory Rate (Total),Respiratory,insp/min,50554,9.0,20.0,38.0
+225312,ART BP Mean,Routine Vital Signs,mmHg,26604,43.0,73.0,122.0

@@ -1,0 +1,29 @@
+item,value
+CLIN stays,2557
+charlson diabetes_with_cc = 0 (index admission),<10
+  of which explained by a 249.6x DN code (not in charlson diabetes lists),<10
+subset admissions rows = raw (CLIN subjects),17022 = 17022
+subset diagnoses_icd rows = raw (CLIN subjects),323916 = 323916
+patients with >= 1 prior admission,1452
+patients with >= 1 prior diagnosis code,1451
+patients with >= 1 D8.3 acute code in the index admission,738
+index admission with 586/N19,0
+  of which with another charlson renal code in the index admission,0
+  of which with 585.x/N18.x (CKD) in the index admission,0
+"586/N19 diagnosis rows, CLIN subjects, any admission",<10
+"586/N19 diagnosis rows, whole MIMIC-IV v3.1 (raw diagnoses_icd)",119
+"CCI (no age score), index admission only, median (IQR)","5 (3, 6)"
+"CCI (no age score), CLIN rule, median (IQR)","5 (4, 7)"
+CCI changed vs index-only (n),1075
+"SAPS-II original, median (IQR)","36 (29, 45)"
+"SAPS-II CLIN rule, median (IQR)","36 (29, 45)"
+SAPS-II changed (n),26
+has_prior_admission = 1 (n),1452
+has_prior_admission = 1 (%),56.8
+"charlson diabetes_with_cc = 1, index admission (%)",99.8
+"charlson diabetes_with_cc = 1, CLIN rule (%)",99.88
+D8.3: renal_disease only through index-admission 586/N19 (n),0
+D8.3: renal_disease only through index-admission 586/N19 (% of CLIN),0.0
+D8.3: >= 1% of CLIN -> 586/N19 add-back sensitivity analysis required,False
+"hypertension = 1, CLIN rule (n)",2266
+"obesity = 1, CLIN rule (n)",859

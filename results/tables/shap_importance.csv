@@ -1,0 +1,37 @@
+analysis,config,model,rank,feature,mean_abs_shap
+primary,noleak_paper,LR (unpenalised),1,rdw_mean,0.40126479811026594
+primary,noleak_paper,LR (unpenalised),2,cci,0.2879012804029225
+primary,noleak_paper,LR (unpenalised),3,age,0.2663190580548146
+primary,noleak_paper,LR (unpenalised),4,apsiii,0.21017632895378915
+primary,noleak_paper,LR (unpenalised),5,oasis,0.1530736092086428
+primary,noleak_paper,LR (unpenalised),6,chloride_max,0.13818868547919647
+primary,noleak_paper,LR (unpenalised),7,lymphocytes_mean,0.12048240288634483
+primary,noleak_paper,LR (unpenalised),8,sii,0.10750163137597624
+primary,noleak_paper,LR (unpenalised),9,aniongap_min,0.08862959512182375
+primary,noleak_paper,LR (unpenalised),10,pt_min,0.0651621545373733
+primary,noleak_paper,LR (unpenalised),11,sapsii,0.05907896170684497
+primary,noleak_paper,LR (unpenalised),12,nlr,0.015255365977429337
+secondary,noleak_tuned,RF,1,rdw_mean,0.030414833694613702
+secondary,noleak_tuned,RF,2,cci,0.024473351518276346
+secondary,noleak_tuned,RF,3,sapsii,0.023885542692748212
+secondary,noleak_tuned,RF,4,apsiii,0.02023386780096339
+secondary,noleak_tuned,RF,5,chloride_max,0.019039355534890733
+secondary,noleak_tuned,RF,6,age,0.018780802974620616
+secondary,noleak_tuned,RF,7,pt_min,0.017544464799754998
+secondary,noleak_tuned,RF,8,nlr,0.014935528686693306
+secondary,noleak_tuned,RF,9,lymphocytes_mean,0.013548345636840731
+secondary,noleak_tuned,RF,10,oasis,0.011360933590920502
+secondary,noleak_tuned,RF,11,aniongap_min,0.01035529291476501
+secondary,noleak_tuned,RF,12,sii,0.005934547276649382
+paperconfig,faithful_paper,RF,1,rdw_mean,0.07480399929909133
+paperconfig,faithful_paper,RF,2,sapsii,0.039057510659702976
+paperconfig,faithful_paper,RF,3,cci,0.03507942855477475
+paperconfig,faithful_paper,RF,4,age,0.03263319899905814
+paperconfig,faithful_paper,RF,5,apsiii,0.029404165315457618
+paperconfig,faithful_paper,RF,6,oasis,0.02059727199277187
+paperconfig,faithful_paper,RF,7,pt_min,0.019940123546980357
+paperconfig,faithful_paper,RF,8,chloride_max,0.018481854346330283
+paperconfig,faithful_paper,RF,9,nlr,0.01652175694206159
+paperconfig,faithful_paper,RF,10,lymphocytes_mean,0.015488793515987096
+paperconfig,faithful_paper,RF,11,sii,0.012146841771283275
+paperconfig,faithful_paper,RF,12,aniongap_min,0.004992738088032284

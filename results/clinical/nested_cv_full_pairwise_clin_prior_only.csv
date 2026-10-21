@@ -1,0 +1,2 @@
+model_1,model_2,auroc_1,auroc_2,common_repeats,mean_diff,sd_diff,se_corrected,lo,hi,t,df,p_value,k,r
+RF (tuned),LR (L2),0.788926,0.787364,"42,43,44,45,46",0.001562,0.012082,0.004375,-0.00723,0.010353,0.356964,49,0.722651,10,5

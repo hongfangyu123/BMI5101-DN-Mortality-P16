@@ -1,0 +1,52 @@
+{
+ "name": "CLIN final model (stage 8e-4)",
+ "decision": "D8.14 (model selected by the D8.8 rule on the CLIN nested CV); frozen before any CLIN held-out data are read",
+ "frozen_on": "2026-10-03",
+ "base_git_commit": "ce548d3588e74b30b480bf30f89c90db62a7878f",
+ "fit_script": "scripts/04h_final_clin.py",
+ "training_set": {
+  "source": "data/processed/split_clin.parquet (split == 'train') joined to data/processed/features_clin.parquet on stay_id",
+  "n": 2045,
+  "events": 544,
+  "stay_id_sha256": "ce8152b6b2c7f7bd0f2b78cc592f2e4105a71b4e6f490b3db2227b00fd6226ca",
+  "stay_id_sha256_definition": "sha256 of np.sort(stay_id).tobytes() (int32), as in the 04f cache meta",
+  "candidate_matrix_sha256": "52b729416b35fd07c21cd9129a83c21da37ec5960580fce299b48835dd702498",
+  "candidate_matrix_sha256_definition": "sha256 of the candidate columns (order below) as a C-contiguous float64 array, rows in split order; identical to the 04f clinical cache meta data_sha"
+ },
+ "candidates": {
+  "definition": "src.variables.FEATURES (55 predictors, CLIN versions) + wbc_diff_missing",
+  "n": 56,
+  "missing_filter_exempt": ["lymphocytes_mean", "neutrophils_mean", "monocytes_mean", "nlr", "plr", "lmr", "pnr", "sii"]
+ },
+ "steps": [
+  "1. 20% missing-rate rule (src.preprocess.missing_filter, threshold 0.20) computed on the 2,045 training patients; the 8 WBC-differential variables are exempt (D8.4 method 2)",
+  "2. Imputation fitted on the training set (src.preprocess.impute_scale: mean for continuous, mode for MODE_VARS; D3.3); fill values stored for application to new data",
+  "3. Standardisation fitted on the imputed training set (mean, population SD); stored",
+  "4. LASSO: src.lasso.cv_lasso on the standardised training set, inner 10-fold stratified CV, seed 42, glmnet lambda grid; selected variables = non-zero coefficients at lambda.1se",
+  "5. Recommended model LR (L2): src.models.tuning_grids(p, 42)['LR'] = LogisticRegression(l1_ratio=0.0, max_iter=10000), grid C in [0.001, 0.01, 0.1, 1, 10, 100, inf]; GridSearchCV(cv=StratifiedKFold(5, shuffle=True, random_state=42), scoring='roc_auc', refit=True) on the standardised selected variables",
+  "6. Comparator tuned RF: src.models.tuning_grids(p, 42)['RF'] (n_estimators 500, random_state 42; max_features grid adapted to p), same GridSearchCV, on the imputed (unstandardised) selected variables",
+  "7. If LASSO selects no variable, stop (no model is frozen) and report"
+ ],
+ "models": {
+  "recommended": {"label": "LR (L2)", "key": ["tuned", "LR"], "inputs": "standardised"},
+  "comparator": {"label": "RF (tuned)", "key": ["tuned", "RF"], "inputs": "imputed raw scale"}
+ },
+ "seed": 42,
+ "thresholds": {
+  "definition": "pooled-OOF Youden threshold of the CLIN nested CV, median over the 5 repeats (results/clinical/nested_cv_full_oof_threshold_clin.csv); positive if p >= threshold",
+  "LR (L2)": 0.2578,
+  "RF (tuned)": 0.2414
+ },
+ "code_sha256": {
+  "src/models.py": "5f6102d564830c0b7a9201619b348ecfaef64721171cb4fdad723fe19786e9cb",
+  "src/lasso.py": "65219c1b6bf353d711b32eddd41e9de0e76c6a263e839f9a3e5f9024c08be191",
+  "src/preprocess.py": "1c2860aeeb5f79c5d0cd06bf9717d8ca84a4ee57c53f7c55ea8080bd19d971a0",
+  "src/variables.py": "c8af49625983214bf35f440180837a016a5a2274cdd7f1b6db07e31dfaa9b4c9",
+  "src/metrics.py": "dcfc34dbea445f7d07e51aa52ad1c70878f0d178d1caf15ca5f7e65d37a29709"
+ },
+ "outputs": {
+  "model_bundle": "data/interim/final_clin/final_clin.pkl (git-ignored)",
+  "fit_record": "results/clinical/final_model_clin.json (aggregate: selected variables, lambda, C, RF parameters, events, EPV, bundle sha256)"
+ },
+ "holdout": "data/processed/split_clin.parquet split == 'valid' (512 patients); evaluated once by scripts/04i_holdout_clin.py after this file and the fit record are committed"
+}

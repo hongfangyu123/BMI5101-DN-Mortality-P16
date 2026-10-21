@@ -1,0 +1,54 @@
+{
+ "spec_file": "results/clinical/frozen_model_clin.json",
+ "spec_sha256": "c0993a14484ecf339fa3effe3239cdc8513c7d7aaa47620ae8d05f38d8db40a2",
+ "bundle": "data/interim/final_clin/final_clin.pkl",
+ "bundle_sha256": "8784a337ffd953896d7131b2a08076c4bbf48d2b95f9211a5170d4d52bd757f8",
+ "n_train": 2045,
+ "events": 544,
+ "n_candidates": 56,
+ "n_dropped_missing": 0,
+ "dropped_missing": [],
+ "lambda_1se": 0.016799908437018903,
+ "lambda_min": 0.004567203355586954,
+ "n_selected": 22,
+ "selected": [
+  "age",
+  "gender_male",
+  "obesity",
+  "aniongap_min",
+  "bun_min",
+  "rdw_mean",
+  "monocytes_mean",
+  "calcium_min",
+  "chloride_max",
+  "ptt_min",
+  "pt_min",
+  "resp_rate_mean",
+  "sapsii",
+  "apsiii",
+  "lods",
+  "oasis",
+  "cci",
+  "nlr",
+  "plr",
+  "lmr",
+  "sii",
+  "wbc_diff_missing"
+ ],
+ "params": {
+  "LR (L2)": {
+   "C": 0.01
+  },
+  "RF (tuned)": {
+   "max_depth": 10,
+   "max_features": 2,
+   "min_samples_leaf": 20
+  }
+ },
+ "inner_cv_auroc": {
+  "LR (L2)": 0.8065610610458063,
+  "RF (tuned)": 0.8035606986791113
+ },
+ "epv_selected": 24.727272727272727,
+ "events_per_candidate": 9.714285714285714
+}

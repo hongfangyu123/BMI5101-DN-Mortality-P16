@@ -1,0 +1,19 @@
+version,params,model,train,valid,cv_auc_train,gap_train_minus_valid,gap_train_minus_cv,flag_overfit
+faithful,paper,LR,0.8024,0.8027,0.7926,-0.0003,0.0098,False
+faithful,paper,RF,0.8866,0.7803,0.7753,0.1063,0.1113,True
+faithful,paper,RF (R defaults),0.9992,0.7564,0.7335,0.2428,0.2657,True
+faithful,paper,SVM,0.8615,0.7637,0.7203,0.0978,0.1412,False
+faithful,paper,XGBoost,0.8376,0.7868,0.7972,0.0508,0.0404,False
+faithful,tuned,LR,0.803,0.8027,0.7965,0.0003,0.0065,False
+faithful,tuned,RF,0.8502,0.7927,0.7997,0.0575,0.0505,False
+faithful,tuned,SVM,0.8023,0.8017,0.7922,0.0006,0.0101,False
+faithful,tuned,XGBoost,0.8339,0.7822,0.7999,0.0517,0.034,False
+noleak,paper,LR,0.8024,0.8028,0.7926,-0.0004,0.0098,False
+noleak,paper,RF,0.8866,0.7803,0.7754,0.1063,0.1112,True
+noleak,paper,RF (R defaults),0.9992,0.7564,0.7356,0.2428,0.2636,True
+noleak,paper,SVM,0.8621,0.7633,0.7202,0.0988,0.1419,False
+noleak,paper,XGBoost,0.8376,0.7868,0.7972,0.0508,0.0404,False
+noleak,tuned,LR,0.803,0.8026,0.7964,0.0004,0.0066,False
+noleak,tuned,RF,0.8502,0.7927,0.7998,0.0575,0.0504,False
+noleak,tuned,SVM,0.8018,0.8015,0.7934,0.0003,0.0084,False
+noleak,tuned,XGBoost,0.8341,0.7823,0.7998,0.0518,0.0343,False

@@ -1,0 +1,25 @@
+model,rank,feature,mean_abs_shap_logodds
+LR (unpenalised),1,rdw_mean,0.40126479811026594
+LR (unpenalised),2,cci,0.2879012804029225
+LR (unpenalised),3,age,0.2663190580548146
+LR (unpenalised),4,apsiii,0.21017632895378915
+LR (unpenalised),5,oasis,0.1530736092086428
+LR (unpenalised),6,chloride_max,0.13818868547919647
+LR (unpenalised),7,lymphocytes_mean,0.12048240288634483
+LR (unpenalised),8,sii,0.10750163137597624
+LR (unpenalised),9,aniongap_min,0.08862959512182375
+LR (unpenalised),10,pt_min,0.0651621545373733
+LR (unpenalised),11,sapsii,0.05907896170684497
+LR (unpenalised),12,nlr,0.015255365977429337
+"LR (L2, C=0.01)",1,rdw_mean,0.28581366794483476
+"LR (L2, C=0.01)",2,cci,0.23279498158601036
+"LR (L2, C=0.01)",3,age,0.17527214190042556
+"LR (L2, C=0.01)",4,apsiii,0.14126087000979756
+"LR (L2, C=0.01)",5,sapsii,0.12297188234240784
+"LR (L2, C=0.01)",6,oasis,0.11038426769936219
+"LR (L2, C=0.01)",7,chloride_max,0.10854604607295253
+"LR (L2, C=0.01)",8,aniongap_min,0.0817956255626634
+"LR (L2, C=0.01)",9,lymphocytes_mean,0.07382875590677747
+"LR (L2, C=0.01)",10,pt_min,0.0649954968753765
+"LR (L2, C=0.01)",11,sii,0.05617730343958582
+"LR (L2, C=0.01)",12,nlr,0.040507286735106035

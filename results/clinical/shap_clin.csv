@@ -1,0 +1,23 @@
+model,rank,feature,mean_abs_shap_logodds
+LR (L2),1,rdw_mean,0.260228
+LR (L2),2,cci,0.243322
+LR (L2),3,age,0.21012
+LR (L2),4,apsiii,0.150362
+LR (L2),5,obesity,0.141681
+LR (L2),6,chloride_max,0.124333
+LR (L2),7,oasis,0.118181
+LR (L2),8,resp_rate_mean,0.105823
+LR (L2),9,sapsii,0.096356
+LR (L2),10,wbc_diff_missing,0.089199
+LR (L2),11,gender_male,0.077276
+LR (L2),12,calcium_min,0.076653
+LR (L2),13,aniongap_min,0.069556
+LR (L2),14,lods,0.060925
+LR (L2),15,pt_min,0.054716
+LR (L2),16,bun_min,0.053385
+LR (L2),17,lmr,0.045161
+LR (L2),18,ptt_min,0.036714
+LR (L2),19,plr,0.035144
+LR (L2),20,monocytes_mean,0.027285
+LR (L2),21,sii,0.024947
+LR (L2),22,nlr,0.02052

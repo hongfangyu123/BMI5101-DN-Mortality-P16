@@ -1,0 +1,10 @@
+params,model,auroc,nested_cv_auc_04d,abs_diff
+paper,RF (paper),0.764717,0.7647,1.7e-05
+paper,RF (R defaults) (paper),0.705291,0.7053,9e-06
+paper,XGBoost (paper),0.789394,0.7894,6e-06
+paper,SVM (paper),0.711328,0.7113,2.8e-05
+paper,LR (unpenalised),0.781404,0.7814,4e-06
+tuned,RF (tuned),0.785008,0.785,8e-06
+tuned,XGBoost (tuned),0.789337,0.7893,3.7e-05
+tuned,SVM (tuned),0.783159,0.7832,4.1e-05
+tuned,LR (L2),0.78373,0.7837,3e-05

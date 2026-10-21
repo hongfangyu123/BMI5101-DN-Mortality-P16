@@ -1,0 +1,275 @@
+{
+  "history": {
+    "n_development": 2045,
+    "with_prior_admission": 1184,
+    "with_prior_diagnosis_document": 1183,
+    "without_prior_diagnosis_document": 862,
+    "document_coverage": 0.5784841075794621,
+    "distinct_icd_median_among_document": 31.0
+  },
+  "n_static_candidates": 56,
+  "n_temporal_candidates": 125,
+  "selection": {
+    "temporal_lr": {
+      "n_fits": 50,
+      "selected_temporal_median": 4.5,
+      "selected_temporal_min": 1,
+      "selected_temporal_max": 13,
+      "fits_with_temporal": 50,
+      "selected_numeric_median": 24.5,
+      "count_feature_instances": 101,
+      "other_temporal_instances": 153,
+      "top": [
+        [
+          "trajectory_spo2_std",
+          48
+        ],
+        [
+          "trajectory_temperature_count",
+          42
+        ],
+        [
+          "trajectory_chloride_delta",
+          24
+        ],
+        [
+          "trajectory_calcium_count",
+          21
+        ],
+        [
+          "trajectory_spo2_slope_per_hour",
+          21
+        ],
+        [
+          "trajectory_chloride_slope_per_hour",
+          18
+        ],
+        [
+          "trajectory_rdw_count",
+          13
+        ],
+        [
+          "trajectory_temperature_std",
+          11
+        ]
+      ]
+    },
+    "temporal_rf": {
+      "n_fits": 50,
+      "selected_temporal_median": 4.5,
+      "selected_temporal_min": 1,
+      "selected_temporal_max": 13,
+      "fits_with_temporal": 50,
+      "selected_numeric_median": 24.5,
+      "count_feature_instances": 101,
+      "other_temporal_instances": 153,
+      "top": [
+        [
+          "trajectory_spo2_std",
+          48
+        ],
+        [
+          "trajectory_temperature_count",
+          42
+        ],
+        [
+          "trajectory_chloride_delta",
+          24
+        ],
+        [
+          "trajectory_calcium_count",
+          21
+        ],
+        [
+          "trajectory_spo2_slope_per_hour",
+          21
+        ],
+        [
+          "trajectory_chloride_slope_per_hour",
+          18
+        ],
+        [
+          "trajectory_rdw_count",
+          13
+        ],
+        [
+          "trajectory_temperature_std",
+          11
+        ]
+      ]
+    },
+    "temporal_xgb": {
+      "n_fits": 50,
+      "selected_temporal_median": 4.5,
+      "selected_temporal_min": 1,
+      "selected_temporal_max": 13,
+      "fits_with_temporal": 50,
+      "selected_numeric_median": 24.5,
+      "count_feature_instances": 101,
+      "other_temporal_instances": 153,
+      "top": [
+        [
+          "trajectory_spo2_std",
+          48
+        ],
+        [
+          "trajectory_temperature_count",
+          42
+        ],
+        [
+          "trajectory_chloride_delta",
+          24
+        ],
+        [
+          "trajectory_calcium_count",
+          21
+        ],
+        [
+          "trajectory_spo2_slope_per_hour",
+          21
+        ],
+        [
+          "trajectory_chloride_slope_per_hour",
+          18
+        ],
+        [
+          "trajectory_rdw_count",
+          13
+        ],
+        [
+          "trajectory_temperature_std",
+          11
+        ]
+      ]
+    },
+    "combined_stacking": {
+      "n_fits": 50,
+      "selected_temporal_median": 4.5,
+      "selected_temporal_min": 1,
+      "selected_temporal_max": 13,
+      "fits_with_temporal": 50,
+      "selected_numeric_median": 24.5,
+      "count_feature_instances": 101,
+      "other_temporal_instances": 153,
+      "top": [
+        [
+          "trajectory_spo2_std",
+          48
+        ],
+        [
+          "trajectory_temperature_count",
+          42
+        ],
+        [
+          "trajectory_chloride_delta",
+          24
+        ],
+        [
+          "trajectory_calcium_count",
+          21
+        ],
+        [
+          "trajectory_spo2_slope_per_hour",
+          21
+        ],
+        [
+          "trajectory_chloride_slope_per_hour",
+          18
+        ],
+        [
+          "trajectory_rdw_count",
+          13
+        ],
+        [
+          "trajectory_temperature_std",
+          11
+        ]
+      ]
+    }
+  },
+  "embedding_width_counts": {
+    "embedding_lr": {
+      "32": 50
+    },
+    "embedding_rf": {
+      "32": 50
+    },
+    "embedding_xgb": {
+      "32": 50
+    }
+  },
+  "dca": [
+    {
+      "experiment": "static_stacking",
+      "reference": "static_lr",
+      "n_thresholds": 56,
+      "higher": 31,
+      "lower": 25,
+      "equal": 0,
+      "minimum_difference": -0.008084759576202138,
+      "maximum_difference": 0.0035511339684680954
+    },
+    {
+      "experiment": "combined_stacking",
+      "reference": "static_stacking",
+      "n_thresholds": 56,
+      "higher": 30,
+      "lower": 23,
+      "equal": 3,
+      "minimum_difference": -0.0038774629656263687,
+      "maximum_difference": 0.0038141809290953635
+    },
+    {
+      "experiment": "temporal_lr",
+      "reference": "static_lr",
+      "n_thresholds": 56,
+      "higher": 11,
+      "lower": 45,
+      "equal": 0,
+      "minimum_difference": -0.007662677476086288,
+      "maximum_difference": 0.0014612397526247711
+    },
+    {
+      "experiment": "temporal_rf",
+      "reference": "static_rf",
+      "n_thresholds": 56,
+      "higher": 26,
+      "lower": 30,
+      "equal": 0,
+      "minimum_difference": -0.006597458815984614,
+      "maximum_difference": 0.004237978810105972
+    },
+    {
+      "experiment": "temporal_xgb",
+      "reference": "static_xgb",
+      "n_thresholds": 56,
+      "higher": 17,
+      "lower": 39,
+      "equal": 0,
+      "minimum_difference": -0.0031325479736237366,
+      "maximum_difference": 0.004156479217603936
+    },
+    {
+      "experiment": "embedding_rf",
+      "reference": "static_rf",
+      "n_thresholds": 56,
+      "higher": 27,
+      "lower": 29,
+      "equal": 0,
+      "minimum_difference": -0.007921760391198001,
+      "maximum_difference": 0.005154396450239976
+    },
+    {
+      "experiment": "embedding_xgb",
+      "reference": "static_xgb",
+      "n_thresholds": 56,
+      "higher": 33,
+      "lower": 23,
+      "equal": 0,
+      "minimum_difference": -0.004792176039119828,
+      "maximum_difference": 0.00388662501131936
+    }
+  ],
+  "metric_comparison_family": 15,
+  "date": "2026-10-15"
+}

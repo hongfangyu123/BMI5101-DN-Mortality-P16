@@ -1,0 +1,3 @@
+variant,auc_oof_train,brier_oof_train,cal_in_the_large_oof_train,cal_slope_oof_train,auc_valid,brier_valid,cal_in_the_large_valid,cal_slope_valid
+LR (unpenalised),0.792055,0.148969,-0.002532,0.931809,0.802772,0.144527,-0.054011,0.964504
+"LR (L2, C=0.01)",0.79577,0.148726,-0.000939,1.201755,0.802634,0.144657,-0.048323,1.206114

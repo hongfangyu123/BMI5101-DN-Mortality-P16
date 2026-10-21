@@ -1,0 +1,11 @@
+params,model,seconds,folds_planned,extrapolated_hours
+paper,RF (paper),0.034,50,0.0
+paper,RF (R defaults) (paper),0.023,50,0.0
+paper,XGBoost (paper),0.017,50,0.0
+paper,SVM (paper),0.229,50,0.003
+paper,LR (unpenalised),0.011,50,0.0
+tuned,RF (tuned),59.555,50,0.827
+tuned,XGBoost (tuned),10.239,50,0.142
+tuned,SVM (tuned),1.912,50,0.027
+tuned,LR (L2),0.08,50,0.001
+-,"LASSO (per fold, shared)",35.233,50,0.489

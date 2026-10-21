@@ -1,0 +1,20 @@
+definition,step,n,deaths_1y_icu,mortality_1y_icu
+all,[1] patients with a DN code (any admission),8992,,
+all,[1a] DN-coded admissions,24834,,
+all,[1b] patients with a DN-coded admission that has an ICU stay,3189,,
+A,[2] first ICU at first hospitalization (definition),1318,310.0,0.2352
+A,[3] hospital LOS > 48h,1266,290.0,0.2291
+A,[4] age > 18,1266,290.0,0.2291
+A,[5] complete blood count (8 items) in first-day window,837,189.0,0.2258
+B,[2] first ICU at first hospitalization (definition),1964,475.0,0.2419
+B,[3] hospital LOS > 48h,1883,445.0,0.2363
+B,[4] age > 18,1883,445.0,0.2363
+B,[5] complete blood count (8 items) in first-day window,1228,283.0,0.2305
+C,[2] first ICU at first hospitalization (definition),3189,857.0,0.2687
+C,[3] hospital LOS > 48h,3046,801.0,0.263
+C,[4] age > 18,3046,801.0,0.263
+C,[5] complete blood count (8 items) in first-day window,1960,494.0,0.252
+D,[2] first ICU at first hospitalization (definition),2736,698.0,0.2551
+D,[3] hospital LOS > 48h,2613,650.0,0.2488
+D,[4] age > 18,2613,650.0,0.2488
+D,[5] complete blood count (8 items) in first-day window,1685,400.0,0.2374

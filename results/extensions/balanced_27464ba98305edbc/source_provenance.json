@@ -1,0 +1,21 @@
+{
+  "source_signature": "27464ba98305edbc",
+  "source_project": "dn_mortality_repro_V3_extensions/balanced",
+  "captured_date": "2026-10-15",
+  "source_data_sha256": "09024f28b80fb357ae6d0354f5b8be4bb491929f2c62089a81bc5a7c789c371f",
+  "source_code_sha256": "fe1d0da69caf22eb8919e2da4ffa5ee3ff79feba915abebb52c779e556c5f89c",
+  "contains_patient_identifiers_or_probabilities": false,
+  "files_sha256": {
+    "cache_reuse.json": "2a3cde6b4743c554113c64d69e52bd769a01f62bff3429b2d7d5d6b0f05e053b",
+    "dca_comparison.csv": "62da0af6eb802870dec638b01b863d3c703116697d986af4033b0133567681b7",
+    "extension_evidence.json": "28144d9dc0d1f4dc83f3b8c37ae9e7f86eced50c55de5015a30b7acfc4798f8d",
+    "fold_metrics.csv": "af4d378e61fe84270dff36764954661e444c38b71084eab1e7ff3ac6da5b01ca",
+    "paired_comparisons.csv": "57a08a5e0795671ffc95a8a361cbe406afd19a70e8b6641d1365a20979c1fdbc",
+    "pooled_dca.csv": "7842c9523cdd1f8d90df98de2f68fa664433c4ee4d2a8f21b7cd4f31bc553fe7",
+    "pooled_oof_metrics.csv": "8e4e6ab4e022a3667f3966e3cc681ab482553fb5a745eeae05e02b2e916be078",
+    "repeat_stability.csv": "e806718597fe51f0be9658200b9461560ac2f4a8d94641538264703caa49fc50",
+    "run_identity.json": "d6b6515deec323c5fa6a55cdb94fd7a90d22b88e872ffb221a2da04e449c922e",
+    "summary.csv": "01e6ec30efdda02893f9a76fcec65ab7a41995519f2000fdf9fc920c00b0b14c",
+    "temporal_selection_frequency.csv": "015abe4a8f62d0ec3c9776118eb2c5f4e61ff58b2fdcc3298d7e59f5c45e2118"
+  }
+}
