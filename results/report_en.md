@@ -607,6 +607,13 @@ Held-out set of 512 patients with 136 deaths. Outputs `clinical/holdout_clin.csv
 ### 12.5 Calibration: recalibration needed before deployment
 
 - On the held-out set the L2 LR's calibration slope is **0.82** (intercept +0.049), predictions slightly too extreme; its nested-CV OOF slope is 1.11 (slightly towards the mean), so **the deviation points in opposite directions in the two estimates**. The tuned RF's held-out slope is 1.14 (nested CV 1.46).
+- **Post-hoc addition: 95% CIs for the calibration intercept and slope** (`clinical/holdout_calibration_ci_clin.csv`, `04l_calibration_ci_clin.py`; post-hoc descriptive analysis; the frozen model and the confirmatory results were not changed): LR (L2) slope 0.82 (Wald 95% CI 0.62–1.03; Wald test of slope = 1, p = 0.09), intercept +0.049 (Wald 95% CI (-0.171, +0.270); Wald test of intercept = 0, p = 0.66). With only 136 deaths in the held-out set the intervals are wide: neither deviation is statistically distinguishable from perfect calibration, and the size of the miscalibration is not precisely estimated. The stratified bootstrap (2,000 resamples, seed 42, predictions only, 2,000 converged) fixes the number of events and so omits outcome-rate sampling variability; its intercept interval is therefore narrower than the Wald interval, which is the one to use for the intercept.
+
+| Model | Intercept (Wald 95% CI) | Intercept (bootstrap 95% CI) | Slope (Wald 95% CI) | Slope (bootstrap 95% CI) | p (slope = 1) | p (intercept = 0) |
+|---|---|---|---|---|---|---|
+| LR (L2) | +0.049 (-0.171, +0.270) | +0.049 (-0.055, +0.149) | 0.82 (0.62–1.03) | 0.82 (0.61–1.05) | 0.09 | 0.66 |
+| RF (tuned) | +0.013 (-0.197, +0.223) | +0.013 (-0.059, +0.088) | 1.14 (0.86–1.42) | 1.14 (0.85–1.44) | 0.32 | 0.90 |
+
 - Calibration is unstable across samples, so the model **must be recalibrated in the target population before deployment** (at least re-estimating intercept and slope), and the threshold should be re-set for the intended use after recalibration.
 
 ## 13. Model interpretation (`clinical/coefs_clin.csv`, `clinical/shap_clin.csv`)

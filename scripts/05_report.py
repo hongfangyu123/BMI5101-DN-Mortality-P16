@@ -534,6 +534,48 @@ n_unpen_closerK = sum(sK.loc["LR (unpenalised)", f"abs_ln_cal_slope_pooled_rep{s
 top15K = selK.sort_values(ascending=False, kind="stable").head(15)
 sel50K = selK[selK == 50].index.tolist()
 hoKl, hoKr = hoK.loc["LR (L2)"], hoK.loc["RF (tuned)"]
+
+
+def calci_text(lang: str) -> str:
+    """Post-hoc calibration CIs on the CLIN held-out set (04l; descriptive), empty if 04l has not been run."""
+    f_ = CLD / "holdout_calibration_ci_clin.csv"
+    if not f_.exists():
+        return ""
+    c = pd.read_csv(f_).set_index("model")
+    for m in ("LR (L2)", "RF (tuned)"):                # same point estimates as holdout_clin.csv
+        assert abs(c.loc[m, "cal_intercept"] - hoK.loc[m, "cal_intercept"]) < 1e-6
+        assert abs(c.loc[m, "cal_slope"] - hoK.loc[m, "cal_slope"]) < 1e-6
+    l_ = c.loc["LR (L2)"]
+    iv = lambda r, a, b: f"({r[a]:+.3f}, {r[b]:+.3f})"
+    sv = lambda r, a, b: f"{r[a]:.2f}–{r[b]:.2f}"
+    nb = int(c.n_boot_ok.min())
+    if lang == "zh":
+        head = ("- **事后补充：校准截距与斜率的 95% CI**（`clinical/holdout_calibration_ci_clin.csv`，`04l_calibration_ci_clin.py`；"
+                "事后描述性分析，冻结模型和确认性结果均未改变）：LR (L2) 斜率 "
+                f"{l_.cal_slope:.2f}（Wald 95% CI {sv(l_, 'slope_wald_lo', 'slope_wald_hi')}；斜率 = 1 的 Wald 检验 p = {l_.p_slope_eq_1:.2f}），"
+                f"截距 {l_.cal_intercept:+.3f}（Wald 95% CI {iv(l_, 'int_wald_lo', 'int_wald_hi')}；截距 = 0 的 Wald 检验 p = {l_.p_int_eq_0:.2f}）。"
+                f"留出集只有 {int(hoKl.events_eval)} 例死亡，区间较宽，两项均与完美校准无统计学差异，不足以确定偏离的大小。"
+                f"分层 bootstrap（2,000 次，种子 42，只重抽预测，{nb:,} 次收敛）固定了事件数，不含结局率的抽样变异，"
+                "因此截距区间窄于 Wald 区间；截距以 Wald 区间为准。")
+        cols = "| 模型 | 截距（Wald 95% CI） | 截距（bootstrap 95% CI） | 斜率（Wald 95% CI） | 斜率（bootstrap 95% CI） | p（斜率 = 1） | p（截距 = 0） |"
+    else:
+        head = ("- **Post-hoc addition: 95% CIs for the calibration intercept and slope** (`clinical/holdout_calibration_ci_clin.csv`, "
+                "`04l_calibration_ci_clin.py`; post-hoc descriptive analysis; the frozen model and the confirmatory results were not changed): "
+                f"LR (L2) slope {l_.cal_slope:.2f} (Wald 95% CI {sv(l_, 'slope_wald_lo', 'slope_wald_hi')}; Wald test of slope = 1, "
+                f"p = {l_.p_slope_eq_1:.2f}), intercept {l_.cal_intercept:+.3f} (Wald 95% CI {iv(l_, 'int_wald_lo', 'int_wald_hi')}; "
+                f"Wald test of intercept = 0, p = {l_.p_int_eq_0:.2f}). With only {int(hoKl.events_eval)} deaths in the held-out set "
+                "the intervals are wide: neither deviation is statistically distinguishable from perfect calibration, and the size "
+                f"of the miscalibration is not precisely estimated. The stratified bootstrap (2,000 resamples, seed 42, predictions "
+                f"only, {nb:,} converged) fixes the number of events and so omits outcome-rate sampling variability; its intercept "
+                "interval is therefore narrower than the Wald interval, which is the one to use for the intercept.")
+        cols = "| Model | Intercept (Wald 95% CI) | Intercept (bootstrap 95% CI) | Slope (Wald 95% CI) | Slope (bootstrap 95% CI) | p (slope = 1) | p (intercept = 0) |"
+    rows_ = [f"| {m} | {r.cal_intercept:+.3f} {iv(r, 'int_wald_lo', 'int_wald_hi')} | {r.cal_intercept:+.3f} {iv(r, 'int_boot_lo', 'int_boot_hi')} "
+             f"| {r.cal_slope:.2f} ({sv(r, 'slope_wald_lo', 'slope_wald_hi')}) | {r.cal_slope:.2f} ({sv(r, 'slope_boot_lo', 'slope_boot_hi')}) "
+             f"| {r.p_slope_eq_1:.2f} | {r.p_int_eq_0:.2f} |" for m, r in c.iterrows()]
+    return "\n".join([head, "", cols, "|---|---|---|---|---|---|---|", *rows_, "", ""])
+
+
+calciK_zh, calciK_en = calci_text("zh"), calci_text("en")
 assert abs(specK["thresholds"]["LR (L2)"] - thrK.loc["LR (L2)", "median"]) < 1e-9
 assert abs(specK["thresholds"]["RF (tuned)"] - thrK.loc["RF (tuned)", "median"]) < 1e-9
 assert recK["params"]["LR (L2)"]["C"] == 0.01
@@ -952,7 +994,7 @@ AUPRC 的基线（阳性率）为 {l2K.prevalence_pooled_mean:.3f}。
 ### 12.5 校准：部署前需要再校准
 
 - 留出集上 LR (L2) 的校准斜率为 **{hoKl.cal_slope:.2f}**（截距 {hoKl.cal_intercept:+.3f}），预测略偏极端；嵌套 CV OOF 的斜率为 {l2K.cal_slope_pooled_mean:.2f}（略偏向均值），**偏离方向在两处相反**。调参 RF 留出集斜率 {hoKr.cal_slope:.2f}（嵌套 CV {rK.cal_slope_pooled_mean:.2f}）。
-- 校准在不同样本上不稳定，模型**部署前需要在目标人群中再校准**（至少重估截距与斜率），阈值也应在再校准后按使用场景重新确定。
+{calciK_zh}- 校准在不同样本上不稳定，模型**部署前需要在目标人群中再校准**（至少重估截距与斜率），阈值也应在再校准后按使用场景重新确定。
 
 ## 13. 模型解释（`clinical/coefs_clin.csv`、`clinical/shap_clin.csv`）
 

@@ -1,0 +1,3 @@
+model,cal_intercept,int_wald_lo,int_wald_hi,int_boot_lo,int_boot_hi,cal_slope,slope_wald_lo,slope_wald_hi,slope_boot_lo,slope_boot_hi,p_slope_eq_1,p_int_eq_0,n_boot_ok
+LR (L2),0.049409,-0.170814,0.269632,-0.055272,0.14911,0.824532,0.620356,1.028708,0.612569,1.05491,0.092108,0.66013,2000
+RF (tuned),0.013237,-0.196885,0.223359,-0.059167,0.087935,1.141098,0.860415,1.421782,0.848968,1.443862,0.324494,0.901733,2000

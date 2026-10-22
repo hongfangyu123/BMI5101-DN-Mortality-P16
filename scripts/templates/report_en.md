@@ -328,7 +328,7 @@ Held-out set of {int(hoKl.n_eval)} patients with {int(hoKl.events_eval)} deaths.
 ### 12.5 Calibration: recalibration needed before deployment
 
 - On the held-out set the L2 LR's calibration slope is **{hoKl.cal_slope:.2f}** (intercept {hoKl.cal_intercept:+.3f}), predictions slightly too extreme; its nested-CV OOF slope is {l2K.cal_slope_pooled_mean:.2f} (slightly towards the mean), so **the deviation points in opposite directions in the two estimates**. The tuned RF's held-out slope is {hoKr.cal_slope:.2f} (nested CV {rK.cal_slope_pooled_mean:.2f}).
-- Calibration is unstable across samples, so the model **must be recalibrated in the target population before deployment** (at least re-estimating intercept and slope), and the threshold should be re-set for the intended use after recalibration.
+{calciK_en}- Calibration is unstable across samples, so the model **must be recalibrated in the target population before deployment** (at least re-estimating intercept and slope), and the threshold should be re-set for the intended use after recalibration.
 
 ## 13. Model interpretation (`clinical/coefs_clin.csv`, `clinical/shap_clin.csv`)
 
