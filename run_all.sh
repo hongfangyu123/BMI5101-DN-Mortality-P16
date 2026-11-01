@@ -9,4 +9,4 @@ for s in 01_cohort 01b_outcome_check 02_features 03_preprocess 04_model 04b_cali
   echo "== $s"
   conda run --no-capture-output -n dn_repro python -u "scripts/$s.py" > "results/logs/$s.log" 2>&1
 done
-echo "done: see results/report.md"
+echo "done: see results/report_en.md"

@@ -1,4 +1,4 @@
-"""提取开发集的时间轨迹与既往 ICD 文档；没有患者删除或全样本插补。"""
+"""Extract development-set temporal trajectories and prior ICD documents; no patient deletion or whole-sample imputation."""
 from __future__ import annotations
 
 import hashlib
@@ -11,7 +11,7 @@ import pandas as pd
 
 from .settings import BURDEN, DATABASE, DOCUMENT, PROCESSED, ROOT, STATIC, V3_PROCESSED
 
-# 复用 V3 官方 concept 表；白细胞分类使用绝对计数，体温使用已换算的摄氏度。
+# Reuse the official V3 concept tables; the white-cell differential uses absolute counts and temperature uses the converted Celsius values.
 CONCEPTS = {
     'chemistry': ['glucose', 'aniongap', 'bicarbonate', 'creatinine', 'bun',
                   'calcium', 'chloride', 'sodium', 'potassium'],
@@ -24,14 +24,14 @@ STATISTICS = ['delta', 'slope_per_hour', 'std', 'late_minus_early', 'count']
 
 
 def fingerprint(frame):
-    """数据与列名进入缓存身份；不输出患者级内容。"""
+    """Data and column names enter the cache identity; no patient-level content is output."""
     h = hashlib.sha256('|'.join(frame.columns).encode())
     h.update(pd.util.hash_pandas_object(frame, index=False).values.tobytes())
     return h.hexdigest()
 
 
 def load_development():
-    """只读 train 的特征和结局；留出集只读 stay_id 用于互斥检查。"""
+    """Read only the features and outcomes of train; for the held-out set only stay_id is read, to check disjointness."""
     split_path = V3_PROCESSED / 'split_clin.parquet'
     train = pd.read_parquet(split_path, filters=[('split', '==', 'train')])
     valid_ids = pd.read_parquet(split_path, columns=['stay_id'], filters=[('split', '==', 'valid')])
@@ -48,14 +48,14 @@ def load_development():
     assert (cohort.outtime > cohort.intime + pd.Timedelta(hours=24)).all()
     missing = set(STATIC) - set(feat.columns)
     if missing:
-        raise ValueError(f'V3 缺少静态列：{sorted(missing)}')
+        raise ValueError(f'V3 is missing static columns: {sorted(missing)}')
     return train.reset_index(drop=True), feat, cohort
 
 
 def event_query(concept, columns):
     if concept not in CONCEPTS or not set(columns) <= set(CONCEPTS[concept]):
-        raise ValueError('未授权的 concept/变量')
-    # 化验必须属于同次住院，生命体征必须属于同次 ICU；窗口右端包含 24 h。
+        raise ValueError('unauthorised concept/variable')
+    # Labs must belong to the same hospitalization and vital signs to the same ICU stay; the right end of the window includes 24 h.
     key = 'x.stay_id = c.stay_id' if concept == 'vitalsign' else 'x.hadm_id = c.hadm_id'
     return f'''
       SELECT c.stay_id, x.charttime,
@@ -70,7 +70,7 @@ def event_query(concept, columns):
 
 
 def trajectory_statistics(hours, values):
-    """先合并同一时刻的测量；至少两个不同时刻才定义 delta、SD 和斜率。"""
+    """First merge measurements at the same time point; delta, SD and slope are defined only with at least two distinct time points."""
     d = pd.DataFrame({'hour': hours, 'value': values}).replace([np.inf, -np.inf], np.nan).dropna()
     d = d[(d.hour >= 0) & (d.hour <= 24)]
     d = d.groupby('hour', sort=True).value.mean().reset_index()
@@ -118,7 +118,7 @@ PRIOR_QUERY = '''
 
 
 def history_documents(rows, stays):
-    """确切码 + 三级类目，不混淆 ICD9/10；没有既往诊断时文档为空。"""
+    """Exact code + three-character category, without mixing ICD9/10; the document is empty when there are no prior diagnoses."""
     out = pd.DataFrame({'stay_id': list(stays)})
     out[DOCUMENT] = ''
     for col in BURDEN:
@@ -131,7 +131,7 @@ def history_documents(rows, stays):
         exact = set()
         for version, code in zip(dx.icd_version, dx.code):
             if int(version) not in (9, 10):
-                raise ValueError('ICD version 应为 9 或 10')
+                raise ValueError('ICD version must be 9 or 10')
             token = f'v{int(version)}_{code}'
             exact.add(token)
             tokens.update([token, f'c{int(version)}_{code[:3]}'])
@@ -143,7 +143,7 @@ def history_documents(rows, stays):
 def build_features():
     train, static, cohort = load_development()
     if not DATABASE.exists():
-        raise FileNotFoundError(f'请先完成 V3 队列/特征流程：{DATABASE}')
+        raise FileNotFoundError(f'complete the V3 cohort/feature pipeline first: {DATABASE}')
     PROCESSED.mkdir(parents=True, exist_ok=True)
     with duckdb.connect(str(DATABASE), read_only=True) as con:
         con.execute('SET threads=2')
@@ -160,7 +160,7 @@ def build_features():
         'source': str(V3_PROCESSED), 'holdout_labels_loaded': False,
         'temporal_window': 'ICU intime <= charttime <= intime + 24h; same hadm_id/stay_id',
         'history_window': 'previous admission dischtime < index admittime',
-        'note': '轨迹仅0–24h；V3静态列沿用原-6–24h口径；没有拟合词表/插补/筛选。',
+        'note': 'trajectories only 0–24h; V3 static columns keep the original -6–24h window; no vocabulary/imputation/selection fitted.',
     }
     tmp = PROCESSED / 'development_features.tmp.parquet'
     frame.to_parquet(tmp, index=False)
@@ -172,5 +172,5 @@ def build_features():
     (table_dir / 'feature_summary.json').write_text(json.dumps({k: manifest[k] for k in
         ['n_development', 'events_development', 'holdout_labels_loaded', 'temporal_window', 'history_window']},
         ensure_ascii=False, indent=2), encoding='utf-8')
-    print(f'开发集特征准备完成：{len(frame)} 人，{int(frame.y.sum())} 例死亡；{len(manifest["temporal"])} 个轨迹候选。')
+    print(f'development-set features prepared: {len(frame)} patients, {int(frame.y.sum())} deaths; {len(manifest["temporal"])} trajectory candidates.')
     return manifest

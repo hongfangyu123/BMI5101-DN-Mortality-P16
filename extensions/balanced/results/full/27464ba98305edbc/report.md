@@ -1,14 +1,14 @@
-# V3 扩展开发集实验
+# V3 extension development-set experiments
 
-profile=full；合成数据=False；留出集标签未读取。
+profile=full; synthetic data=False; held-out labels not read.
 
-balanced：固定基模型参数；保留折内 Pipeline 与 λ.1se，LASSO 5折/30λ、stacking 3折。与严格版分开记录。
+balanced: fixed base-model parameters; within-fold Pipeline and λ.1se kept, LASSO 5 folds/30 λ, stacking 3 folds. Recorded separately from the strict version.
 
-这些属于开发集探索性比较，不能声称已由独立留出集确认。
+These are exploratory development-set comparisons and cannot be claimed as confirmed by an independent held-out set.
 
-树模型扩展保持原固定参数；embedding vs burden 检验潜在表示增益，embedding vs static 检验总增益。
+Tree-model extensions keep the original fixed parameters; embedding vs burden tests the gain from the latent representation, embedding vs static tests the total gain.
 
-## 同折模型比较
+## Same-fold model comparison
 
 ```text
 
@@ -30,7 +30,7 @@ combined_stacking             50         0.804750       0.027378         0.61571
 
 ```
 
-## 配对差异（扩展减去参考模型）
+## Paired differences (extension minus reference model)
 
 ```text
 
@@ -83,6 +83,6 @@ combined_stacking static_stacking  Brier  -0.000099 0.003927      0.001422 -0.00
 
 ```
 
-AUROC/AUPRC 差值为正更好，Brier 差值为负更好。CI 为 Nadeau–Bengio 校正区间；p_holm_current_family 对当前已有实验按每个指标作 Holm 多重比较校正。
+For AUROC/AUPRC a positive difference is better, for Brier a negative difference is better. CIs are Nadeau–Bengio corrected intervals; p_holm_current_family applies a Holm multiple-comparison correction per metric over the experiments currently available.
 
-pilot 只用于检查流程和耗时；smoke 仅使用合成数据，不能作为研究结果。
+pilot is only for checking the pipeline and run time; smoke uses synthetic data only and cannot be used as research results.

@@ -2,7 +2,7 @@
 
 Original paper: Huang Y, Mo W, et al. *Machine learning models predict mortality risk in diabetic neuropathy patients using MIMIC-IV data.* Sci Rep 2025;15:38702.
 
-This report is generated entirely by `scripts/05_report.py` from aggregate result tables and contains no patient-level data. It is the English version of [`report.md`](report.md) and carries the same numbers. All definitions and their rationale are recorded in [`decisions.md`](decisions.md) (cited below by D number; written in Chinese), and stage summaries in [`progress.md`](progress.md). The report has three parts: Part I, replication of the paper (definition C); Part II, the clinical model (CLIN); Part III, comparison with the paper, limitations and future work.
+This report is generated entirely by `scripts/05_report.py` from aggregate result tables and contains no patient-level data. All definitions and their rationale are recorded in [`decisions.md`](decisions.md) (cited below by D number), and stage summaries in [`progress.md`](progress.md). The report has three parts: Part I, replication of the paper (definition C); Part II, the clinical model (CLIN); Part III, comparison with the paper, limitations and future work.
 
 ## 0. Summary
 
@@ -357,7 +357,7 @@ Both analyses run the full 5 × 10 nested CV for the L2 LR and the tuned RF only
 | Item | Paper | This study | Main reason |
 |---|---|---|---|
 | Data release | v2.x (2008–2019) | v3.1 (2008–2022) | Patients from 2020–2022 added |
-| DN patients / final n | 4,137 / 1,313 | {int(flow_tab.iloc[0, 2]):,} / {n_final:,} (definition C) | Data release; retention at later steps is consistent |
+| DN patients / final n | 4,137 / 1,313 | {int(flow_tab_en.iloc[0, 2]):,} / {n_final:,} (definition C) | Data release; retention at later steps is consistent |
 | Mortality | 38.2% | {d_final / n_final:.1%} | The paper may have counted any non-missing dod (our cohort gives {o.loc['death_any_dod', 'rate']:.1%} under that definition); we use an explicit 1-year window |
 | Hypertension prevalence | 37.3% | 84.6% | The paper may have counted only uncomplicated hypertension (35.4% in our cohort); that definition misclassifies hypertensive CKD/heart failure as "no hypertension" (Section 3.3) |
 | Lymphocytes / neutrophils / monocytes | Implausibly wide distributions | Physiological range (K/uL) | The paper may have mixed units/scales |

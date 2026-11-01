@@ -34,4 +34,4 @@ else
 fi
 step 04j_plots_clin             04j_plots_clin                                     # re-predict held-out set, assert = holdout_clin.csv
 step 05_report                  05_report
-echo "done: see results/report.md; check reproduction with: git status --short results/ && git diff --stat results/"
+echo "done: see results/report_en.md; check reproduction with: git status --short results/ && git diff --stat results/"

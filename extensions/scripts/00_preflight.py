@@ -1,4 +1,4 @@
-"""只检查依赖、V3 开发集与 concept 表结构，不训练模型。"""
+"""Only check dependencies, the V3 development set and the concept table structure; no model is trained."""
 import sys
 from pathlib import Path
 
@@ -13,9 +13,9 @@ def main():
     with duckdb.connect(str(DATABASE), read_only=True) as con:
         for concept, variables in CONCEPTS.items():
             names = set(con.execute(f'DESCRIBE mimiciv_derived.{concept}').df().column_name)
-            assert set(variables) <= names, f'{concept} 缺少列'
-    print(f'检查通过：V3 开发集 {len(train)} 人，死亡 {int(train.y.sum())} 人。')
-    print(f'源项目：{V3_ROOT}；留出集标签未读取；没有启动训练。')
+            assert set(variables) <= names, f'{concept} is missing columns'
+    print(f'check passed: V3 development set {len(train)} patients, {int(train.y.sum())} deaths.')
+    print(f'source project: {V3_ROOT}; held-out labels not read; no training started.')
 
 
 if __name__ == '__main__':

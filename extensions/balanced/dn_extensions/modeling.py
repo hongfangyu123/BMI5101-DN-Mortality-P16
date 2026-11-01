@@ -1,4 +1,4 @@
-"""简化计算：固定参数、折内表示学习和交叉拟合 stacking。"""
+"""Simplified computation: fixed parameters, within-fold representation learning and cross-fitted stacking."""
 from __future__ import annotations
 
 import numpy as np
@@ -26,7 +26,7 @@ EXPERIMENTS = {
     'burden_lr': ('burden', 'LR'),
     'embedding_lr': ('embedding', 'LR'),
     'combined_stacking': ('combined', 'Stacking'),
-    # 同一特征构建规则用于不同学习器，避免把模型效应与特征效应混在一起。
+    # The same feature-construction rules are used for different learners, so model effects are not confounded with feature effects.
     'temporal_rf': ('temporal', 'RF'),
     'temporal_xgb': ('temporal', 'XGBoost'),
     'burden_rf': ('burden', 'RF'),
@@ -37,7 +37,7 @@ EXPERIMENTS = {
 
 
 def fit_numeric(frame, threshold):
-    """只在传入训练行上计算缺失率、均值/众数和标准差。"""
+    """Compute missing rates, means/modes and standard deviations only on the training rows passed in."""
     frame = frame.replace([np.inf, -np.inf], np.nan).astype(float)
     keep = [c for c in frame if frame[c].notna().any() and
             (frame[c].isna().mean() <= threshold or c in WBC_EXEMPT)]
@@ -54,7 +54,7 @@ def scaled(frame, keep, fill, mu, sd):
 
 
 def choose_lasso(raw, y, options, seed):
-    """复用 V3 的 glmnet-style 路径和 λ.1se；连 LASSO 内部折也重新预处理。"""
+    """Reuse the V3 glmnet-style path and λ.1se; preprocessing is redone even inside the LASSO inner folds."""
     keep, fill, mu, sd = fit_numeric(raw, options['missing_threshold'])
     if not keep:
         return [], (keep, fill, mu, sd), None
@@ -64,7 +64,7 @@ def choose_lasso(raw, y, options, seed):
         return [], (keep, fill, mu, sd), None
     k = min(options['inner_lasso_folds'], int(np.bincount(y).min()))
     if k < 2:
-        raise ValueError('LASSO 训练集每类至少需要2例')
+        raise ValueError('the LASSO training set needs at least 2 cases per class')
     lambdas = np.geomspace(lmax, lmax * 1e-4, options['lasso_lambdas'])
     deviations = []
     for tr, va in StratifiedKFold(k, shuffle=True, random_state=seed).split(raw, y):
@@ -123,7 +123,7 @@ class FoldRepresentation(TransformerMixin, BaseEstimator):
                     self.svd_ = TruncatedSVD(n_components=width, n_iter=7, random_state=self.seed)
                     embedded = self.svd_.fit_transform(tfidf)
                 else:
-                    # 只有一个词时保留其 TF-IDF 一维，避免 SVD 报错。
+                    # With only one term, keep its one-dimensional TF-IDF to avoid an SVD error.
                     embedded = tfidf.toarray()
                 self.embedding_width_ = embedded.shape[1]
                 self.embedding_scaler_ = StandardScaler().fit(embedded)
@@ -173,8 +173,8 @@ def base_pipeline(name, variant, options, seed, memory):
                                   tree_method='hist', random_state=seed, n_jobs=options['jobs'], **parameters)
     else:
         raise ValueError(name)
-    # 表示学习完全一致，LR/RF/XGB可共享相同训练行的LASSO/embedding缓存。
-    # LR的缩放移到轻量的独立步骤；树模型仍使用插补后的原尺度。
+    # Representation learning is identical, so LR/RF/XGB can share the LASSO/embedding cache for the same training rows.
+    # Scaling for LR is moved to a separate lightweight step; tree models still use the imputed original scale.
     steps = [('representation', FoldRepresentation(variant, options, seed, False))]
     if name == 'LR':
         steps.append(('scale', StandardScaler()))

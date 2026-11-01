@@ -1,1 +1,1 @@
-"""V3 CLIN 扩展；所有输出写在独立目录，不覆盖 V3。"""
+"""V3 CLIN extensions; all outputs go to separate directories and never overwrite V3."""

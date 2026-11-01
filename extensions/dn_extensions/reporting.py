@@ -1,4 +1,4 @@
-"""把每次真实开发集实验的状态与结论同步写回对应 Notebook。"""
+"""Write the status and conclusions of each real development-set experiment back into the corresponding notebook."""
 from __future__ import annotations
 
 import json
@@ -31,19 +31,19 @@ def update_notebooks(output, options):
         if selected.empty or not any(e != 'static_lr' and e in set(selected.experiment) for e in experiments):
             continue
         nb = nbformat.read(path, as_version=4)
-        text = ['## 实验状态与结论（自动更新）', f'运行模式：`{options["profile"]}`；结果目录：`{output.relative_to(ROOT)}`。',
-                '固定留出集未参与本实验。', '```text', selected.round(5).to_string(index=False), '```']
+        text = ['## Experiment status and conclusions (updated automatically)', f'Run mode: `{options["profile"]}`; result directory: `{output.relative_to(ROOT)}`.',
+                'The fixed held-out set took no part in this experiment.', '```text', selected.round(5).to_string(index=False), '```']
         if len(paired):
             comparisons = paired[paired.experiment.isin(experiments)]
-            text += ['配对差异：', '```text', comparisons.round(5).to_string(index=False), '```']
+            text += ['Paired differences:', '```text', comparisons.round(5).to_string(index=False), '```']
             for row in comparisons[comparisons.metric == 'AUROC'].itertuples():
-                interpretation = ('有内部验证提升证据' if row.lo > 0 else
-                                  '有内部验证下降证据' if row.hi < 0 else '尚无明确的提升或下降证据')
-                text.append(f'- `{row.experiment}` 相对 `{row.reference}`：ΔAUROC={row.mean_diff:.4f}，'
-                            f'校正95% CI [{row.lo:.4f}, {row.hi:.4f}]；{interpretation}。'
-                            '还需查看 Holm 校正 p 值、AUPRC、校准和 DCA。')
+                interpretation = ('internal-validation evidence of improvement' if row.lo > 0 else
+                                  'internal-validation evidence of deterioration' if row.hi < 0 else 'no clear evidence of improvement or deterioration yet')
+                text.append(f'- `{row.experiment}` vs `{row.reference}`: ΔAUROC={row.mean_diff:.4f}, '
+                            f'corrected 95% CI [{row.lo:.4f}, {row.hi:.4f}]; {interpretation}. '
+                            'The Holm-corrected p-value, AUPRC, calibration and DCA should also be checked.')
         if options['profile'] != 'full':
-            text.append('**本次只是 pilot 小规模试跑，不能写成正式研究结论。**')
+            text.append('**This is only a small pilot run and must not be written up as a formal research conclusion.**')
         cell = next((c for c in nb.cells if c.get('metadata', {}).get('extension_results')), None)
         if cell is None:
             cell = nbformat.v4.new_markdown_cell()
@@ -59,9 +59,9 @@ def update_preparation_notebook(manifest):
         return
     nb = nbformat.read(path, as_version=4)
     cell = next(c for c in nb.cells if c.get('metadata', {}).get('extension_results'))
-    cell.source = ('## 实验状态与结论（自动更新）\n\n'
-                   f'特征准备完成：开发集 {manifest["n_development"]} 人，'
-                   f'{manifest["events_development"]} 例死亡，{len(manifest["temporal"])} 个时间轨迹候选。\n\n'
-                   '此步没有拟合插补、词表、SVD 或模型，也没有读取留出集标签。'
-                   '描述性缺失率不能直接用作全样本特征筛选；筛选发生在后续训练折内。')
+    cell.source = ('## Experiment status and conclusions (updated automatically)\n\n'
+                   f'Feature preparation completed: development set {manifest["n_development"]} patients, '
+                   f'{manifest["events_development"]} deaths, {len(manifest["temporal"])} temporal trajectory candidates.\n\n'
+                   'This step fitted no imputation, vocabulary, SVD or model, and did not read the held-out labels. '
+                   'Descriptive missing rates must not be used directly for whole-sample feature screening; screening happens later within the training folds.')
     nbformat.write(nb, path)

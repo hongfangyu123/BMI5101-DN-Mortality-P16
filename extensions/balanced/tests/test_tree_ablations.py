@@ -1,4 +1,4 @@
-"""仅合成数据：验证新实验的对照、续跑与缓存拒绝逻辑，不训练患者模型。"""
+"""Synthetic data only: checks the comparators, resume and cache-rejection logic of the new experiments; no patient model is trained."""
 import hashlib
 import json
 import pickle
@@ -44,7 +44,7 @@ class TreeAblationChecks(unittest.TestCase):
                     self.assertIn((f'embedding_{model}', f'burden_{model}'), observed)
                     self.assertIn((f'embedding_{model}', f'static_{model}'), observed)
                 self.assertFalse(summary.experiment.str.contains('stacking').any())
-                with patch.object(evaluation, 'make_estimator', side_effect=AssertionError('续跑不应拟合')):
+                with patch.object(evaluation, 'make_estimator', side_effect=AssertionError('resume should not fit')):
                     _, again, _ = evaluation.run_evaluation(profile_options('smoke'), NEW)
                 pd.testing.assert_frame_equal(summary, again)
                 self.assertTrue((output / 'pooled_dca.csv').exists())

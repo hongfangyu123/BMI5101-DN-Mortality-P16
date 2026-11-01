@@ -1,5 +1,5 @@
 #!/usr/bin/env bash
-# 默认只是检查。prepare/pilot/full 都需要用户显式指定。
+# Default is check only. prepare/pilot/full must be requested explicitly by the user.
 set -euo pipefail
 cd -- "$(dirname -- "${BASH_SOURCE[0]}")"
 export BMI5101_V3_ROOT="${BMI5101_V3_ROOT:-$(cd ../.. && pwd)}"   # repository root = the V3 project

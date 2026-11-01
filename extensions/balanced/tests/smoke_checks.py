@@ -1,4 +1,4 @@
-"""不运行患者数据模型；合成测试时间边界、折内变换和八组模型的接线。"""
+"""Runs no patient-data models; synthetic tests of time boundaries, within-fold transforms and the wiring of the eight model groups."""
 import sys
 from pathlib import Path
 
@@ -77,7 +77,7 @@ def main():
     assert (summary.n_outer_folds == 2).all()
     assert summary.AUROC_fold_mean.between(0, 1).all()
     assert output.parent.name == 'smoke'
-    print('所有轻量检查通过；模型评估只用了120行合成数据，没有训练真实患者模型。')
+    print('all lightweight checks passed; model evaluation used only 120 rows of synthetic data, and no real patient model was trained.')
 
 
 if __name__ == '__main__':

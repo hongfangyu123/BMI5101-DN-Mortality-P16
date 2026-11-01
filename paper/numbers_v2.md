@@ -77,7 +77,7 @@ Not listed (not data): citation numbers in brackets, section/table/figure/item l
 | 10 outer folds, 5 repeats, J = 50 | 2.5 | report §6.1 ("outer stratified 10 folds × 5 repeats"; "50 outer folds") |
 | 49 degrees of freedom (J − 1) | 2.5 | code: src/metrics.py:98 (`df = k * r - 1`) |
 | 0.975 (t quantile) | 2.5 | definitional (two-sided 95%) |
-| 200 null datasets; 4.0% (corrected) vs 38.0% (uncorrected) rejection rates; 10-fold, 5-repeat design | 2.5 | results/progress.md line 129 ("200 个数据集，10 × 5 CV"; 0.040 vs 0.380); not in report_en.md, source approved by the authors |
+| 200 null datasets; 4.0% (corrected) vs 38.0% (uncorrected) rejection rates; 10-fold, 5-repeat design | 2.5 | results/progress.md line 129 ("Null simulation (200 data sets, 10 × 5 CV): rejection rate 0.040 for the corrected test, 0.380 for the uncorrected t-test"; 0.040 vs 0.380); not in report_en.md, source approved by the authors |
 | 0.01; 0.02 (equivalence margins) | 2.5 | report §6.2 Rule |
 | 5 repeats (thresholds, rule 4) | 2.5; 2.6 | report §6.2; §11 |
 | 2,000 bootstrap resamples | 2.5 | code: scripts/04i_holdout_clin.py:13, 153 (report §12.3 says "bootstrap 95% CI" without the count) |

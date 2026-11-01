@@ -3,11 +3,9 @@
 BMI5101 Group Project (P16). We rebuild the framework of Huang et al., *Machine learning models predict mortality risk in diabetic neuropathy patients using MIMIC-IV data*, Sci Rep 2025;15:38702 ([doi:10.1038/s41598-025-22363-x](https://doi.org/10.1038/s41598-025-22363-x)) on MIMIC-IV v3.1, correct its methodological problems, and develop a landmark model that predicts one-year mortality 24 h after ICU admission. Exploratory extensions (stacking, first-day temporal trajectories and prior-diagnosis embeddings) are evaluated on the same development set.
 
 **Paper:** [`paper/main.pdf`](paper/main.pdf) (LaTeX sources in `paper/`).
-**Reports:** [`results/report_en.md`](results/report_en.md) (English) and [`results/report.md`](results/report.md) (Chinese), Parts I–IV.
+**Report:** [`results/report_en.md`](results/report_en.md), Parts I–IV.
 
 Authors: [team members]
-
-> 中文简介：本项目在 MIMIC-IV v3.1 上按 Huang et al. (2025) 的框架重做糖尿病神经病变 ICU 患者 1 年死亡预测，修正原文的方法问题（预测时点、完整血常规纳入条件、共病时间、结局与单位定义、单次验证集选模等），建立入 ICU 24 h 的 landmark 模型（CLIN），并在同一开发集上探索 stacking、首日时间轨迹和既往诊断 embedding 扩展。仓库中没有任何患者级数据。
 
 ## Main results
 
@@ -27,14 +25,14 @@ All numbers are taken from `results/report_en.md`.
 ## Repository layout
 
 ```text
-README.md, DATA_ACCESS.md, REPRODUCE.md   overview, data rules, full reproduction guide (Chinese)
+README.md, DATA_ACCESS.md, REPRODUCE.md   overview, data rules, full reproduction guide
 environment.yml                           core pinned packages (conda env "dn_repro")
 environment-macos-full.yml                complete export of the original macOS environment
 environment-linux-64.lock.txt             explicit Linux lock file
 run_all.sh, run_stage8.sh                 main pipeline, stages 0–7 and stage 8
 config/                                   data path (MIMIC_ROOT), seeds, DuckDB memory limit
 src/                                      shared code: DuckDB access, variables, LASSO, models, preprocessing, metrics
-scripts/                                  numbered pipeline scripts 00–05 (see REPRODUCE.md); report_extensions.py
+scripts/                                  numbered pipeline scripts 00–05 (see REPRODUCE.md)
 tests/                                    Nadeau–Bengio unit check (synthetic data); one-off subset-database check (needs local data)
 extensions/                               extension feature preparation (check / prepare)
   balanced/                               extension experiments used in the reports (code, notebooks, results)
@@ -43,7 +41,7 @@ results/                                  aggregate results only
   clinical/                               landmark model: nested CV, frozen specification, held-out results
   extensions/balanced_27464ba98305edbc/   hash-checked extension snapshot cited by the reports
   figures/                                figures (single-patient force plots are excluded)
-  report_en.md, report.md, decisions.md, progress.md
+  report_en.md, decisions.md, progress.md
 paper/                                    paper LaTeX sources, figures and main.pdf
 tools/check_public_release.py             pre-publication check of the files git would publish
 external/MIMIC_CODE_COMMIT.txt            pinned MIT-LCP/mimic-code commit (the clone itself is not included)

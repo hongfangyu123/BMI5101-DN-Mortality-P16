@@ -1,4 +1,4 @@
-"""同一开发集、同一外层折的配对比较；真实留出集不参与扩展选择。"""
+"""Paired comparisons on the same development set and the same outer folds; the real held-out set takes no part in selecting extensions."""
 from __future__ import annotations
 
 import hashlib
@@ -35,17 +35,17 @@ def code_fingerprint():
 def load_extension_frame():
     path = PROCESSED / 'development_features.parquet'
     if not path.exists():
-        raise FileNotFoundError('请先运行 bash run_extensions.sh prepare。')
+        raise FileNotFoundError('run bash run_extensions.sh prepare first.')
     frame = pd.read_parquet(path)
     _, original, _ = load_development()
     columns = ['stay_id', 'y'] + STATIC
     if fingerprint(frame[columns]) != fingerprint(original[columns]):
-        raise ValueError('V3 开发集/静态特征已改变；请重新运行 prepare，不复用旧特征。')
+        raise ValueError('the V3 development set/static features have changed; rerun prepare instead of reusing old features.')
     return frame
 
 
 def synthetic_frame(n=120):
-    """冒烟测试只用合成数据；其中的数字不是任何 DN 模型性能。"""
+    """The smoke test uses synthetic data only; its numbers are not the performance of any DN model."""
     rng = np.random.default_rng(123)
     X = pd.DataFrame(rng.normal(size=(n, len(STATIC))), columns=STATIC)
     X['wbc_diff_missing'] = 0.0
@@ -118,7 +118,7 @@ def summarize(records, y, options, output):
                   'burden_rf': 'static_rf', 'burden_xgb': 'static_xgb',
                   'embedding_rf': 'burden_rf', 'embedding_xgb': 'burden_xgb'}
     comparisons = []
-    # embedding 的主比较控制住诊断负担；另报相对静态模型的总增益。
+    # The main comparison for embedding controls for diagnosis burden; the total gain over the static model is reported separately.
     reference_pairs = list(references.items()) + [
         ('embedding_rf', 'static_rf'), ('embedding_xgb', 'static_xgb')]
     for exp, ref in reference_pairs:
@@ -142,7 +142,7 @@ def summarize(records, y, options, output):
             if len(ix):
                 paired.loc[ix, 'p_holm_current_family'] = multipletests(paired.loc[ix, 'p_value'], method='holm')[1]
     paired.to_csv(output / 'paired_comparisons.csv', index=False)
-    # 每折的变量选择/超参数为汇总信息；概率和患者标识只保存在 data/。
+    # Per-fold variable selection/hyperparameters are summary information; probabilities and patient identifiers are kept only in data/.
     metadata = [{k: rec[k] for k in ['experiment', 'repeat', 'seed', 'fold', 'fit_metadata']} for rec in records]
     (output / 'fit_metadata.json').write_text(json.dumps(metadata, ensure_ascii=False, indent=2), encoding='utf-8')
     return summary, paired
@@ -155,9 +155,9 @@ def run_evaluation(options, experiments, frame=None, *, reuse_from=None, check_o
     X = frame.drop(columns=['stay_id', 'y'])
     unknown = set(experiments) - set(EXPERIMENTS)
     if unknown:
-        raise ValueError(f'未知实验：{sorted(unknown)}')
+        raise ValueError(f'unknown experiments: {sorted(unknown)}')
     experiments = list(dict.fromkeys(['static_lr'] + experiments))
-    # 自动补齐同类型静态模型，以及 embedding 的诊断负担对照；不会添加 stacking。
+    # Automatically adds the static model of the same type and the diagnosis-burden comparator for embedding; stacking is never added.
     for suffix in ('lr', 'rf', 'xgb'):
         if any(f'{variant}_{suffix}' in experiments for variant in ('temporal', 'burden', 'embedding')):
             experiments.append(f'static_{suffix}')
@@ -178,11 +178,11 @@ def run_evaluation(options, experiments, frame=None, *, reuse_from=None, check_o
     pipeline_cache = cache / 'pipeline_cache'
     if reuse_from:
         if synthetic:
-            raise ValueError('合成测试不能导入真实患者预测')
+            raise ValueError('a synthetic test cannot import real patient predictions')
         from .cache_reuse import reuse_approved_cache
         pipeline_cache = reuse_approved_cache(reuse_from, identity, frame, cache, output, check_only=check_only)
     if check_only:
-        print(f'仅检查，不训练：{options["profile"]}；实验={experiments}；新签名={signature}', flush=True)
+        print(f'check only, no training: {options["profile"]}; experiments={experiments}; new signature={signature}', flush=True)
         return None, None, None
     cache.mkdir(parents=True, exist_ok=True)
     output.mkdir(parents=True, exist_ok=True)
@@ -197,22 +197,22 @@ def run_evaluation(options, experiments, frame=None, *, reuse_from=None, check_o
                 if target.exists():
                     with target.open('rb') as f:
                         rec = pickle.load(f)
-                    assert np.array_equal(rec['test_indices'], va), '缓存外层折不同'
-                    print(f'缓存：rep {repeat + 1} fold {fold + 1} {experiment}', flush=True)
+                    assert np.array_equal(rec['test_indices'], va), 'cached outer fold differs'
+                    print(f'cache: rep {repeat + 1} fold {fold + 1} {experiment}', flush=True)
                     continue
                 start = time.time()
                 est = make_estimator(experiment, options, seed, pipeline_cache)
                 est.fit(X.iloc[tr], y[tr])
                 probability = est.predict_proba(X.iloc[va])[:, 1]
                 if not np.isfinite(probability).all():
-                    raise ValueError('预测概率存在非有限值')
+                    raise ValueError('predicted probabilities contain non-finite values')
                 rec = {'experiment': experiment, 'repeat': repeat, 'seed': seed, 'fold': fold,
                        'n_train': len(tr), 'n_test': len(va), 'test_indices': va, 'probability': probability,
                        'seconds': time.time() - start, 'fit_metadata': fitted_metadata(est)}
                 atomic_pickle(rec, target)
                 print(f'rep {repeat + 1}/{len(options["seeds"])} fold {fold + 1}/{options["outer_folds"]} '
-                      f'{experiment}: 完成 ({rec["seconds"]:.1f}s)', flush=True)
-    # 同一签名目录可分次执行不同扩展，最后一起做配对比较。
+                      f'{experiment}: done ({rec["seconds"]:.1f}s)', flush=True)
+    # Different extensions can be run at different times in the same signature directory, and compared pairwise together at the end.
     records = []
     for p in sorted(cache.glob('r*_f*_*.pkl')):
         with p.open('rb') as f:
@@ -224,15 +224,15 @@ def run_evaluation(options, experiments, frame=None, *, reuse_from=None, check_o
     if not synthetic:
         from .reporting import update_notebooks
         update_notebooks(output, options)
-    report = ['# V3 扩展开发集实验', f'profile={options["profile"]}；合成数据={synthetic}；留出集标签未读取。',
-              'balanced：固定基模型参数；保留折内 Pipeline 与 λ.1se，LASSO 5折/30λ、stacking 3折。与严格版分开记录。',
-              '这些属于开发集探索性比较，不能声称已由独立留出集确认。',
-              '树模型扩展保持原固定参数；embedding vs burden 检验潜在表示增益，embedding vs static 检验总增益。',
-              '## 同折模型比较', '```text', summary.round(6).to_string(index=False), '```',
-              '## 配对差异（扩展减去参考模型）', '```text', paired.round(6).to_string(index=False), '```',
-              'AUROC/AUPRC 差值为正更好，Brier 差值为负更好。CI 为 Nadeau–Bengio 校正区间；'
-              'p_holm_current_family 对当前已有实验按每个指标作 Holm 多重比较校正。',
-              'pilot 只用于检查流程和耗时；smoke 仅使用合成数据，不能作为研究结果。']
+    report = ['# V3 extension development-set experiments', f'profile={options["profile"]}; synthetic data={synthetic}; held-out labels not read.',
+              'balanced: fixed base-model parameters; within-fold Pipeline and λ.1se kept, LASSO 5 folds/30 λ, stacking 3 folds. Recorded separately from the strict version.',
+              'These are exploratory development-set comparisons and cannot be claimed as confirmed by an independent held-out set.',
+              'Tree-model extensions keep the original fixed parameters; embedding vs burden tests the gain from the latent representation, embedding vs static tests the total gain.',
+              '## Same-fold model comparison', '```text', summary.round(6).to_string(index=False), '```',
+              '## Paired differences (extension minus reference model)', '```text', paired.round(6).to_string(index=False), '```',
+              'For AUROC/AUPRC a positive difference is better, for Brier a negative difference is better. CIs are Nadeau–Bengio corrected intervals; '
+              'p_holm_current_family applies a Holm multiple-comparison correction per metric over the experiments currently available.',
+              'pilot is only for checking the pipeline and run time; smoke uses synthetic data only and cannot be used as research results.']
     (output / 'report.md').write_text('\n\n'.join(report) + '\n', encoding='utf-8')
-    print(f'结果写入：{output}', flush=True)
+    print(f'results written to: {output}', flush=True)
     return output, summary, paired

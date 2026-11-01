@@ -1,4 +1,4 @@
-"""生成带中文方法说明与运行开关的 Notebook，不执行其中的训练代码。"""
+"""Generate notebooks with method descriptions (originally in Chinese, translated to English) and run switches; the training code in them is not executed."""
 from pathlib import Path
 
 import nbformat
@@ -9,18 +9,18 @@ SETUP = '''from pathlib import Path
 import sys
 import pandas as pd
 
-# 从扩展目录或 notebooks 子目录定位项目，避免硬编码 Windows 盘符。
+# Locate the project from the extension directory or the notebooks subdirectory, to avoid hard-coding a Windows drive letter.
 ROOT = next((p for p in [Path.cwd(), *Path.cwd().parents]
              if (p / "dn_extensions" / "settings.py").is_file()), None)
 if ROOT is None:
-    raise FileNotFoundError("请从 dn_mortality_repro_V3_extensions 或其 notebooks 子目录启动。")
+    raise FileNotFoundError("start from dn_mortality_repro_V3_extensions or its notebooks subdirectory.")
 sys.path.insert(0, str(ROOT))
-print("扩展目录：", ROOT)
+print("extension directory:", ROOT)
 '''
 
 
 def result_cell():
-    c = nbformat.v4.new_markdown_cell('## 实验状态与结论（自动更新）\n\n简化版尚未运行真实患者实验。原严格版前6折已保存，未混入此版。')
+    c = nbformat.v4.new_markdown_cell('## Experiment status and conclusions (updated automatically)\n\nThe simplified version has not run any real patient experiment yet. The first 6 folds of the original strict version are saved and not mixed into this version.')
     c.metadata['extension_results'] = True
     return c
 
@@ -31,7 +31,7 @@ def save(name, title, method, experiments=None):
     nb.metadata['language_info'] = {'name': 'python'}
     nb.cells = [nbformat.v4.new_markdown_cell(f'# {title}\n\n{method}'), nbformat.v4.new_code_cell(SETUP)]
     if experiments is None:
-        nb.cells.append(nbformat.v4.new_code_cell('''# 默认只展示说明，不扫描数据库。准备特征时改为 True。
+        nb.cells.append(nbformat.v4.new_code_cell('''# By default only show the description and do not scan the database. Set to True to prepare features.
 RUN_FEATURE_PREPARATION = False
 if RUN_FEATURE_PREPARATION:
     from dn_extensions.features import build_features
@@ -39,11 +39,11 @@ if RUN_FEATURE_PREPARATION:
     manifest = build_features()
     update_preparation_notebook(manifest)
 else:
-    print("balanced共享上级已准备的特征，无需重新prepare；缺少特征时到上级运行prepare。")
+    print("balanced shares the features prepared by the parent directory, no need to rerun prepare; if features are missing, run prepare in the parent directory.")
 '''))
     else:
-        nb.cells.append(nbformat.v4.new_code_cell(f'''# pilot 是1×3外层小规模试跑；正式实验将 PROFILE 改为 "full"。
-# 仅把 RUN_EXPERIMENT 改成 True 才会启动；full可能需要较长时间。
+        nb.cells.append(nbformat.v4.new_code_cell(f'''# pilot is a small 1×3 outer-fold trial run; for the formal experiment set PROFILE to "full".
+# Starts only when RUN_EXPERIMENT is set to True; full may take a long time.
 PROFILE = "pilot"
 RUN_EXPERIMENT = False
 EXPERIMENTS = {experiments!r}
@@ -54,18 +54,18 @@ if RUN_EXPERIMENT:
     display(summary)
     display(comparisons)
 else:
-    print("尚未启动本Notebook中的模型训练。")
+    print("model training in this notebook has not been started.")
 '''))
-        nb.cells.append(nbformat.v4.new_code_cell('''# 优先查看正式 full 结果；没有结果时打印状态，不重新训练。
+        nb.cells.append(nbformat.v4.new_code_cell('''# Show the formal full results first; without results print the status, no retraining.
 RESULT_PROFILE = "full"
 latest = ROOT / "results" / RESULT_PROFILE / "latest.txt"
 if latest.exists():
     folder = latest.parent / latest.read_text().strip()
     summary = pd.read_csv(folder / "summary.csv")
     display(summary[summary.experiment.isin(EXPERIMENTS)])
-    print("详细记录：", folder / "report.md")
+    print("detailed record:", folder / "report.md")
 else:
-    print("该模式尚无实验结果。pilot 结果需把 RESULT_PROFILE 改为 pilot 才显示。")
+    print("no experiment results for this mode yet. Set RESULT_PROFILE to pilot to show pilot results.")
 '''))
     nb.cells.append(result_cell())
     OUT.mkdir(parents=True, exist_ok=True)
@@ -74,41 +74,41 @@ else:
 
 
 def main():
-    save('01_prepare_features.ipynb', 'V3：扩展特征准备', '''复用 V3 CLIN 的队列、结局和固定划分，只处理开发集，不读取留出集标签。
+    save('01_prepare_features.ipynb', 'V3: extension feature preparation', '''Reuses the V3 CLIN cohort, outcome and fixed split; processes only the development set and does not read the held-out labels.
 
-时间轨迹：入 ICU 后0–24小时，化验同次 hadm_id、生命体征同次 stay_id；取首尾差值、每小时斜率、SD、后12小时减前12小时均值、测量次数。相同时刻先平均。少于两个时刻时斜率和差值缺失，缺失不删除患者。
+Temporal trajectories: 0–24 hours after ICU admission, labs from the same hadm_id and vital signs from the same stay_id; last-minus-first difference, slope per hour, SD, mean of the last 12 hours minus the first 12 hours, and number of measurements. Measurements at the same time point are averaged first. With fewer than two time points the slope and difference are missing; missingness does not remove the patient.
 
-ICD 文档：只纳入索引住院开始前已结束的住院；同时保留 ICD9/10 版本、确切码与三级类目。没有既往诊断的患者仍保留，文档为空。此步只准备文档，没有提前拟合 TF-IDF/SVD。
+ICD documents: only hospitalizations that ended before the index hospitalization began are included; the ICD9/10 version, the exact code and the three-character category are all kept. Patients with no prior diagnoses are kept with an empty document. This step only prepares the documents; TF-IDF/SVD is not fitted in advance.
 
-V3 静态列仍沿用原来的−6至24小时窗口，因此轨迹增加的是动态信息而非重定义原始基线。描述性缺失率只用于了解数据，后续缺失率筛选在训练折内进行。
+The V3 static columns keep the original −6 to 24 hour window, so the trajectories add dynamic information rather than redefining the original baseline. Descriptive missing rates are only for understanding the data; the later missing-rate screening is done within the training folds.
 
-主分析继承 V3 的20%变量缺失规则及8个白细胞分类变量豁免。轨迹变量没有豁免，测量次数是检查强度指标，不应作因果风险因素解读。''')
-    save('02_stacking.ipynb', 'V3：LR/RF/XGBoost stacking', '''在共同外层折中比较静态 LR、RF、XGBoost 和 stacking。
+The main analysis inherits the V3 20% variable missingness rule and the exemption of the 8 white-cell differential variables. Trajectory variables are not exempt; the number of measurements is an indicator of testing intensity and should not be interpreted as a causal risk factor.''')
+    save('02_stacking.ipynb', 'V3: LR/RF/XGBoost stacking', '''Compares static LR, RF, XGBoost and stacking on common outer folds.
 
-第一层是三个固定参数的 Pipeline；没有在stacking子折里重复网格调参。第二层 LR 只用第一层在 stacking 内部验证折上的预测概率训练。每个基模型在该内部训练子集重新插补、标准化和LASSO选择，不在全体开发集上先生成特征，也不使用训练集拟合概率冒充折外预测。
+The first level is three fixed-parameter Pipelines; there is no repeated grid tuning in the stacking sub-folds. The second-level LR is trained only on the first-level predicted probabilities on the stacking inner validation folds. Each base model redoes imputation, standardisation and LASSO selection on that inner training subset; features are not generated on the whole development set first, and training-set fitted probabilities are not passed off as out-of-fold predictions.
 
-外层验证患者从未参与上述过程。LR/RF/XGBoost 每个实验使用相同外层划分；第二层 C=1 预先固定，passthrough=False；stacking内部3折；LASSO内部5折/30λ。所有基模型参数见config.yaml，未依据当前6折结果重新挑选。
+The outer validation patients never take part in the above. Each LR/RF/XGBoost experiment uses the same outer split; the second level has C=1 fixed in advance, passthrough=False; stacking inner 3 folds; LASSO inner 5 folds/30 λ. All base-model parameters are in config.yaml and were not re-chosen on the basis of the current 6 folds.
 
-对比的新静态基线与扩展共享完整 Pipeline。它遵循 V3 的 λ.1se 原则，但 LASSO内部折也重新预处理，并采用固定基模型参数，不能要求与 V3 旧表逐位一致。''',
+The new static baseline used for comparison shares the complete Pipeline with the extensions. It follows the V3 λ.1se rule, but also redoes preprocessing inside the LASSO folds and uses fixed base-model parameters, so it cannot be required to match the old V3 tables digit for digit.''',
          ['static_lr', 'static_rf', 'static_xgb', 'static_stacking'])
-    save('03_temporal_trajectories.ipynb', 'V3：时间轨迹消融', '''比较 static_lr 与 temporal_lr，保持模型类型、外层折、固定参数和插补规则相同。
+    save('03_temporal_trajectories.ipynb', 'V3: temporal-trajectory ablation', '''Compares static_lr with temporal_lr, keeping the model type, outer folds, fixed parameters and imputation rules the same.
 
-先在每个训练折计算变量缺失率，再训练插补、缩放和 LASSO。只为 V3 静态白细胞分类保留既定豁免，时间斜率缺失过多仍被剔除。不会为了凑完整轨迹删除患者。
+Variable missing rates are computed first in each training fold, then imputation, scaling and LASSO are trained. The established exemption is kept only for the V3 static white-cell differential; temporal slopes with too much missingness are still dropped. No patient is removed to obtain complete trajectories.
 
-差值表示变化幅度；斜率表示每小时变化速度；SD表示波动；前后半天差值表示早晚阶段变化；count 表示测量强度。静态均值/min/max与轨迹可能相关，LASSO λ.1se 为可对照的主分析，不保证时间特征一定提高性能。''', ['static_lr', 'temporal_lr'])
-    save('04_comorbidity_embedding.ipynb', 'V3：既往合并症 ICD embedding', '''三组消融：static_lr → burden_lr → embedding_lr。
+The difference measures the size of change; the slope the rate of change per hour; SD the fluctuation; the late-minus-early half-day difference the change between early and late phases; count the measurement intensity. Static mean/min/max may be correlated with the trajectories; LASSO λ.1se is the comparable main analysis, and temporal features are not guaranteed to improve performance.''', ['static_lr', 'temporal_lr'])
+    save('04_comorbidity_embedding.ipynb', 'V3: prior-comorbidity ICD embedding', '''Three ablation groups: static_lr → burden_lr → embedding_lr.
 
-burden 包括既往住院次数、不同确切码数、诊断事件数和有无既往诊断；前三个用log1p压缩。embedding_lr 在 burden_lr 上增加 TF-IDF + TruncatedSVD（最多32维），以区分“诊断更丰富”与“潜在表示”带来的增益。
+burden includes the number of prior hospitalizations, the number of distinct exact codes, the number of diagnosis events and whether there is any prior diagnosis; the first three are compressed with log1p. embedding_lr adds TF-IDF + TruncatedSVD (at most 32 dimensions) on top of burden_lr, to separate the gain from "richer diagnoses" from that of the "latent representation".
 
-词表、IDF、SVD和缩放只在训练子集中拟合，验证集只 transform。没历史、空词表、仅一个词均有保留患者的回退逻辑。未知验证码不会增加词表。
+The vocabulary, IDF, SVD and scaling are fitted only on the training subset; the validation set is only transformed. No history, an empty vocabulary and a single-term vocabulary all have fallback logic that keeps the patient. Unknown codes in validation do not extend the vocabulary.
 
-这属于结构化诊断表示，不是 clinical notes；当前没有临床文本数据。静态 CLIN 共病仍继承 V3 的既往∪索引慢性编码假设，新增 embedding 完全使用既往已结束住院。后续部署仍需说明原静态编码在24小时时是否可得。''',
+This is a structured diagnosis representation, not clinical notes; there are currently no clinical text data. The static CLIN comorbidities still inherit the V3 assumption of prior ∪ index chronic codes, while the new embedding uses only prior hospitalizations that have ended. Deployment would still need to state whether the original static codes are available at 24 hours.''',
          ['static_lr', 'burden_lr', 'embedding_lr'])
-    save('05_combined_extensions.ipynb', 'V3：三类扩展联合模型', '''比较 static_stacking 与 combined_stacking，分别使用静态特征和静态+轨迹+既往ICD表示。
+    save('05_combined_extensions.ipynb', 'V3: combined model of the three extension types', '''Compares static_stacking with combined_stacking, using static features and static + trajectory + prior-ICD representations respectively.
 
-联合模型每个基模型的训练 Pipeline 都重新拟合自身的轨迹筛选、插补、LASSO、TF-IDF、SVD及缩放，stacking使用3折交叉拟合，基模型不重复调参。不能先在完整开发集生成 embedding 再堆叠。
+In the combined model, the training Pipeline of every base model refits its own trajectory screening, imputation, LASSO, TF-IDF, SVD and scaling; stacking uses 3-fold cross-fitting and the base models are not re-tuned. The embedding must not be generated on the complete development set first and then stacked.
 
-这是探索性的联合消融。必须先看独立时间/embedding实验，再判断联合模型是否改善AUROC、AUPRC、Brier、校准和DCA。当前不使用已看过的固定留出集选择最优扩展，也没有外部验证结论。''',
+This is an exploratory combined ablation. The separate temporal/embedding experiments must be looked at first, before judging whether the combined model improves AUROC, AUPRC, Brier, calibration and DCA. The fixed held-out set that has already been looked at is not used to choose the best extension, and there is no external validation conclusion.''',
          ['static_stacking', 'combined_stacking'])
 
 

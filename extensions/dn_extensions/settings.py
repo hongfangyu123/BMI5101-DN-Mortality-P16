@@ -10,7 +10,7 @@ ROOT = Path(__file__).resolve().parents[1]
 CONFIG = yaml.safe_load((ROOT / 'config.yaml').read_text(encoding='utf-8'))
 V3_ROOT = Path(os.environ.get('BMI5101_V3_ROOT', ROOT / CONFIG['source_project'])).resolve()
 if not (V3_ROOT / 'src/lasso.py').is_file():
-    raise FileNotFoundError(f'找不到 V3 项目：{V3_ROOT}；可设置 BMI5101_V3_ROOT。')
+    raise FileNotFoundError(f'V3 project not found: {V3_ROOT}; set BMI5101_V3_ROOT.')
 sys.path.insert(0, str(V3_ROOT))
 from src.variables import FEATURES, MODE_VARS
 

@@ -1,4 +1,4 @@
-"""从 V3 本地数据准备扩展特征；不拟合机器学习模型。"""
+"""Prepare extension features from local V3 data; no machine-learning model is fitted."""
 import sys
 from pathlib import Path
 

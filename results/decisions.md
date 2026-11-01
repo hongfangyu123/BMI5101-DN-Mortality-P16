@@ -1,733 +1,733 @@
-# 决策记录（decisions.md）
+# Decision log (decisions.md)
 
-总原则：在 MIMIC-IV v3.1 上按论文方法完成研究；论文不明确处选方法学上最合理的方案；论文错误不照搬。
-编号便于在报告中引用。
+Overall principle: carry out the study on MIMIC-IV v3.1 following the paper's methods; where the paper is unclear, choose the methodologically most sound option; do not copy the paper's errors.
+The numbering makes entries easy to cite in the report.
 
-## 0. 基础设施
+## 0. Infrastructure
 
-| # | 决策 | 理由 |
+| # | Decision | Rationale |
 |---|---|---|
-| D0.1 | 用 DuckDB 直接查询 `.csv.gz`；列类型取自 mimic-code 官方 schema（`buildmimic/postgres/create.sql`，按 `buildmimic/duckdb/build_mimic.sh` 的方式修补，另把 `FLOAT` 改为 `DOUBLE`） | 避免类型推断错误；DuckDB 的 FLOAT 是 4 字节，Postgres 的 FLOAT 是 8 字节 |
-| D0.2 | 在 `data/interim/mimic_subset.duckdb` 建只含候选患者的子集库（hosp: patients, admissions, diagnoses_icd, services, labevents, d_labitems；icu: icustays, chartevents, outputevents, d_items），用未修改的 mimic-code `concepts_duckdb` SQL 计算所需派生表 | mimic-code 概念与论文的 SQL 提取口径最接近；子集库避免反复解压 3.5GB 的 chartevents。用户已同意（git 忽略，不出本机） |
-| D0.3 | mimic-code commit：见 `external/MIMIC_CODE_COMMIT.txt`（303d26c6…，2026-09-01） | 可复现 |
-| D0.4 | `icu/` 下同时有 `icustays.csv` 和 `icustays.csv.gz`；用官方 `.csv.gz`（两者 stay_id 集合完全一致，94,458 条） | 与 SHA256SUMS 对应的官方文件 |
+| D0.1 | Query the `.csv.gz` files directly with DuckDB; column types come from the official mimic-code schema (`buildmimic/postgres/create.sql`, patched the way `buildmimic/duckdb/build_mimic.sh` does it, with `FLOAT` additionally changed to `DOUBLE`) | Avoids type-inference errors; FLOAT is 4 bytes in DuckDB but 8 bytes in Postgres |
+| D0.2 | Build a subset database `data/interim/mimic_subset.duckdb` containing only candidate patients (hosp: patients, admissions, diagnoses_icd, services, labevents, d_labitems; icu: icustays, chartevents, outputevents, d_items), and compute the required derived tables with the unmodified mimic-code `concepts_duckdb` SQL | The mimic-code concepts are the closest to the paper's SQL extraction; the subset database avoids repeatedly decompressing the 3.5 GB chartevents. Approved by the user (git-ignored, never leaves the local machine) |
+| D0.3 | mimic-code commit: see `external/MIMIC_CODE_COMMIT.txt` (303d26c6…, 2026-09-01) | Reproducibility |
+| D0.4 | `icu/` contains both `icustays.csv` and `icustays.csv.gz`; use the official `.csv.gz` (the two have identical stay_id sets, 94,458 rows) | The official file matching SHA256SUMS |
 
-## 1. 队列（阶段 1）
+## 1. Cohort (stage 1)
 
-| # | 决策 | 理由 |
+| # | Decision | Rationale |
 |---|---|---|
-| D1.1 | DN 编码严格按论文 14 个码；按 `icd_version` 匹配（ICD-9 码只在 version 9、ICD-10 码只在 version 10 中匹配），编码去点、去空格、转大写 | 避免跨版本误配；实测不匹配行为 0 |
-| D1.2 | **"first ICU admission at first hospitalization" 采用口径 C**：每位患者取**第一次同时含 DN 编码且有 ICU 住院的住院**，取该住院的第一次 ICU stay；然后再应用 LOS、年龄、血常规排除（按论文顺序，排除条件不参与索引选择）。口径 A/B/D 的人数作为敏感性比较列在 `cohort_flow.csv` | 这句话的通常含义是"每位患者只保留一次住院、一次 ICU，避免重复测量"。DN 是慢性病，患者此前有无 DN 编码的非 ICU 住院不改变其是否符合研究人群；A（绝对首次住院）会因 DN 编码或 ICU 出现在非首次住院而排除大量符合条件的患者，引入与病程和就诊史相关的选择偏倚；B 同理（首个 DN 住院未入 ICU 即被排除）；D（一生首次 ICU）会排除首次 ICU 时未编码 DN、后来 ICU 住院才编码 DN 的患者。C 为每位合格患者保留其最早的合格 ICU 事件，是标准的"首次合格事件"做法 |
-| D1.3 | 住院时长 = `dischtime − admittime` > 48 h | 论文原文 |
-| D1.4 | 年龄 = `anchor_age + year(admittime) − anchor_year`，纳入 **> 18**（严格大于，按论文字面） | MIMIC-IV 年龄须按入院年份换算；论文明确写 > 18 |
-| D1.5 | 血常规完整性：ICU 入科前 6 h 至入科后 24 h 内（mimic-code `first_day_lab` 窗口，按 subject_id 关联），WBC、Hb、PLT、RBC、RDW、淋巴细胞绝对值、中性粒细胞绝对值、单核细胞绝对值 8 项均至少有 1 个值；三种白细胞绝对值取 mimic-code `blood_differential`（直接绝对值或百分比 × WBC 推算） | 用户选定 (a) 8 项；窗口与后续首日特征一致；绝对值口径避免单位混杂（见阶段 2） |
-| D1.6 | **主结局：自 ICU 入科（intime）起 1 年全因死亡** = `hospital_expire_flag = 1` 或 `dod ≤ intime 日期 + 365 天`。以 admittime 为起点的版本作为敏感性结果报告 | 模型用 ICU 首日数据，在 ICU 首日末做预测，时间零点应为 ICU 入科；论文 SHAP 病例说明包含"院内死亡"与"出院后一年内死亡"。MIMIC-IV v2.0+ 的 `dod` 覆盖末次出院后 1 年内的院外死亡，因此自索引 ICU 起 365 天内的死亡能完整捕获 |
-| D1.7 | 不采用"`dod` 非空即死亡" | `dod` 的随访长度因人而异（截至末次出院后 1 年），会把多年后的死亡算作结局，结局定义随后续就诊次数而变，方法学上无效。该口径仅作为解释论文 38.2% 死亡率的对照计算 |
-| D1.8 | 口径 C 中 5 个 ICU stay 的 intime 不在 [admittime, dischtime] 内（通常是急诊期间先入 ICU），保留 | 比例极小（0.3%），属于 MIMIC 已知的时间记录差异；排除没有方法学依据 |
+| D1.1 | DN codes strictly follow the paper's 14 codes; matched by `icd_version` (ICD-9 codes matched only in version 9, ICD-10 codes only in version 10); codes are stripped of dots and spaces and upper-cased | Avoids cross-version mismatches; the observed number of non-matching rows is 0 |
+| D1.2 | **"first ICU admission at first hospitalization" uses definition C**: for each patient take the **first hospitalization that has both a DN code and an ICU stay**, and the first ICU stay of that hospitalization; then apply the LOS, age and blood-count exclusions (in the paper's order; the exclusion criteria do not take part in choosing the index). The counts under definitions A/B/D are listed in `cohort_flow.csv` as a sensitivity comparison | The usual meaning of this phrase is "keep only one hospitalization and one ICU stay per patient, to avoid repeated measurements". DN is a chronic disease, and whether a patient earlier had non-ICU hospitalizations with a DN code does not change whether they belong to the study population; A (the absolute first hospitalization) would exclude many eligible patients because the DN code or the ICU stay appears in a later hospitalization, introducing selection bias related to disease course and care history; B likewise (excluded if the first DN hospitalization had no ICU stay); D (first ICU stay in life) would exclude patients who were not coded with DN at their first ICU stay but were coded at a later ICU hospitalization. C keeps the earliest eligible ICU event for each eligible patient, the standard "first eligible event" approach |
+| D1.3 | Length of stay = `dischtime − admittime` > 48 h | Paper's text |
+| D1.4 | Age = `anchor_age + year(admittime) − anchor_year`, include **> 18** (strictly greater, literally as in the paper) | MIMIC-IV age must be converted to the admission year; the paper explicitly says > 18 |
+| D1.5 | Blood-count completeness: within 6 h before to 24 h after ICU admission (the mimic-code `first_day_lab` window, joined by subject_id), all 8 items WBC, Hb, PLT, RBC, RDW, absolute lymphocyte count, absolute neutrophil count and absolute monocyte count have at least 1 value; the three absolute white-cell counts come from mimic-code `blood_differential` (direct absolute values, or percentage × WBC) | The user chose (a), the 8 items; the window matches the later first-day features; using absolute counts avoids unit mixing (see stage 2) |
+| D1.6 | **Primary outcome: all-cause death within 1 year of ICU admission (intime)** = `hospital_expire_flag = 1` or `dod ≤ intime date + 365 days`. The version starting from admittime is reported as a sensitivity result | The model uses first-day ICU data and predicts at the end of the first ICU day, so time zero should be ICU admission; the paper's SHAP case descriptions include "in-hospital death" and "death within one year after discharge". In MIMIC-IV v2.0+, `dod` covers out-of-hospital deaths up to 1 year after the last discharge, so deaths within 365 days of the index ICU stay are fully captured |
+| D1.7 | Do not use "`dod` not null means death" | The follow-up length of `dod` differs between patients (up to 1 year after the last discharge), so deaths many years later would count as the outcome and the outcome definition would vary with the number of later visits; methodologically invalid. This definition is computed only as a comparison to explain the paper's 38.2% mortality |
+| D1.8 | In definition C, 5 ICU stays have an intime outside [admittime, dischtime] (usually ICU admission during the emergency-department phase); kept | The proportion is tiny (0.3%) and is a known timing discrepancy in MIMIC; there is no methodological basis for exclusion |
 
-## 2. 特征（阶段 2）
+## 2. Features (stage 2)
 
-| # | 决策 | 理由 |
+| # | Decision | Rationale |
 |---|---|---|
-| D2.1 | 所有 itemid 经 d_labitems / d_items 核对 label、fluid 和单位（`results/tables/itemid_audit_lab.csv`、`itemid_audit_chart.csv`），脚本中对依赖的单位做硬断言 | 51146 = Basophils（%），不是单核细胞；51133 淋巴细胞绝对值（K/uL）与 51244 淋巴细胞百分比（%）是不同的量，旧代码把它们混合求均值；52075/52074/51133 全部为 K/uL，52769/51253 为 #/uL，由 mimic-code 除以 1000 |
-| D2.2 | 淋巴、中性、单核细胞 = mimic-code `blood_differential` 的**绝对计数（K/uL = 10⁹/L）**：有直接测定的绝对值就用它，否则用百分比 × WBC / 100（mimic-code 规则）；取首日窗口内的均值 | 唯一单位统一且符合 Table 1 标注单位（10⁹/L）的口径 |
-| D2.3 | 取均值的化验（glucose、Hb、PLT、WBC、RBC、RDW、三种白细胞）在 [intime−6h, intime+24h] 窗口内对 mimic-code 的 chemistry / complete_blood_count / blood_differential 求均值；取 min/max 的化验直接用 mimic-code `first_day_lab` | 窗口与 mimic-code 首日口径一致；first_day_lab 本身不提供均值 |
-| D2.4 | Glucose_mean 用实验室血清葡萄糖（chemistry，50931），不用床旁指尖血糖（chartevents） | 论文把 glucose 列在"首日实验室结果"中 |
-| D2.5 | WBC：51300/51301/51755（均为 K/uL），按 specimen 去重后求均值 | 三个 itemid 是同一检测的不同编码 |
-| D2.6 | 生命体征：mimic-code `first_day_vitalsign` 的 heart_rate_mean、mbp_mean（有创+无创）、resp_rate_mean、temperature_mean（°F 已转换为 °C，含范围过滤） | 官方口径 |
-| D2.7 | GCS = mimic-code `first_day_gcs.gcs_min`（首日最低） | 首日评分的标准取法（最差值） |
-| D2.8 | CCI = mimic-code `charlson.charlson_comorbidity_index`（含年龄分，按索引住院的诊断）；心梗、心衰、慢性肺病、肾病取自同一 charlson 标志 | 用户指定；旧代码漏了年龄分 |
-| D2.9 | **高血压 = Quan-Elixhauser 高血压（无并发症 + 有并发症）**：ICD-9 401–405，ICD-10 I10–I13、I15、I16（I16 于 FY2019 新增）；肥胖 = ICD-9 278.0x，ICD-10 E66.x（Quan-Elixhauser）；只用索引住院的诊断 | 标准且可引用的编码定义。注意：这样定义的高血压患病率为 84.6%，而只取无并发症高血压（401/I10）为 35.4%，接近论文的 37.3%，提示论文可能用的是"无并发症高血压"（原文未给出编码，无法确认）。后者会把高血压性 CKD/心衰（I12/I13）患者记为"无高血压"，属于错分，因此主分析用完整定义；"仅无并发症"作为阶段 4 的敏感性分析。补充（阶段 4c，`hypertension_definitions.csv`）：按 ICD 规则，合并 CKD/心衰时编码 I12/I13 而不另编 I10，因此仅无并发症定义下的"无高血压"组包含 964 名只有并发症编码的患者（死亡率 31.3%，OR 1.91），使"高血压"表现为虚假的保护因素（OR 0.49）；完整定义下 OR 1.07（p = 0.65）。两种定义下 LASSO λ.1se 选择相同，模型不受影响 |
-| D2.10 | 组合炎症指标：NLR = N/L，PLR = PLT/L，LMR = L/M，PNR = PLT/N，PWR = PLT/WBC，SII = PLT × N / L，均用首日均值；分母为 0 时记为缺失（淋巴 6 例、单核 18 例、中性 1 例），之后插补 | 避免出现无穷大 |
-| D2.11 | 论文 Table 1 中淋巴、中性、单核细胞的分布异常，原因是不同患者的白细胞分类处在不同尺度（K/uL、%、#/uL）：我们用"绝对计数"口径得到的 NLR、LMR、SII、PWR 与论文几乎一致（NLR 中位数 6.82 vs 6.80，SII 1336 vs 1342）。这些比值在同一患者三种细胞尺度相同时不受影响；而涉及血小板的 PLR（159 vs 36）和 PNR（22 vs 6.6）偏离很大。混合口径的诊断见 `unit_mixing_diagnostic.csv` | 论文的 neutrophils_mean（SHAP 第 2 位）因此部分反映的是检测格式或时期，而不是生理量；PLR/PNR 同样失真。本研究不照搬 |
+| D2.1 | All itemids were checked against d_labitems / d_items for label, fluid and unit (`results/tables/itemid_audit_lab.csv`, `itemid_audit_chart.csv`), and the scripts hard-assert the units they rely on | 51146 = Basophils (%), not monocytes; 51133 absolute lymphocytes (K/uL) and 51244 lymphocyte percentage (%) are different quantities, which the old code averaged together; 52075/52074/51133 are all K/uL, 52769/51253 are #/uL and are divided by 1000 by mimic-code |
+| D2.2 | Lymphocytes, neutrophils and monocytes = the **absolute counts (K/uL = 10⁹/L)** from mimic-code `blood_differential`: use the directly measured absolute value when available, otherwise percentage × WBC / 100 (mimic-code rule); take the mean within the first-day window | The only definition with a single unit that matches the unit stated in Table 1 (10⁹/L) |
+| D2.3 | Labs summarised by the mean (glucose, Hb, PLT, WBC, RBC, RDW, the three white-cell types) are averaged over the [intime−6h, intime+24h] window from mimic-code chemistry / complete_blood_count / blood_differential; labs summarised by min/max are taken directly from mimic-code `first_day_lab` | The window matches the mimic-code first-day definition; first_day_lab itself does not provide means |
+| D2.4 | Glucose_mean uses laboratory serum glucose (chemistry, 50931), not bedside fingerstick glucose (chartevents) | The paper lists glucose among the "first-day laboratory results" |
+| D2.5 | WBC: 51300/51301/51755 (all K/uL), averaged after de-duplicating by specimen | The three itemids are different codes for the same test |
+| D2.6 | Vital signs: heart_rate_mean, mbp_mean (invasive + non-invasive), resp_rate_mean and temperature_mean (°F converted to °C, with range filtering) from mimic-code `first_day_vitalsign` | Official definition |
+| D2.7 | GCS = mimic-code `first_day_gcs.gcs_min` (lowest on the first day) | The standard way to take a first-day score (worst value) |
+| D2.8 | CCI = mimic-code `charlson.charlson_comorbidity_index` (including the age points, from the diagnoses of the index hospitalization); myocardial infarction, heart failure, chronic pulmonary disease and renal disease come from the same charlson flags | Specified by the user; the old code left out the age points |
+| D2.9 | **Hypertension = Quan-Elixhauser hypertension (uncomplicated + complicated)**: ICD-9 401–405, ICD-10 I10–I13, I15, I16 (I16 added in FY2019); obesity = ICD-9 278.0x, ICD-10 E66.x (Quan-Elixhauser); only the diagnoses of the index hospitalization are used | A standard, citable coding definition. Note: hypertension defined this way has a prevalence of 84.6%, whereas uncomplicated hypertension alone (401/I10) gives 35.4%, close to the paper's 37.3%, suggesting that the paper may have used "uncomplicated hypertension" (the paper gives no codes, so this cannot be confirmed). The latter would record patients with hypertensive CKD/heart failure (I12/I13) as "no hypertension", a misclassification, so the main analysis uses the complete definition; "uncomplicated only" is a stage-4 sensitivity analysis. Addendum (stage 4c, `hypertension_definitions.csv`): under ICD rules, I12/I13 is coded instead of I10 when CKD/heart failure is present, so under the uncomplicated-only definition the "no hypertension" group contains 964 patients with only complicated codes (mortality 31.3%, OR 1.91), making "hypertension" look like a spurious protective factor (OR 0.49); under the complete definition OR 1.07 (p = 0.65). The LASSO λ.1se selection is the same under both definitions, so the model is unaffected |
+| D2.10 | Composite inflammation indices: NLR = N/L, PLR = PLT/L, LMR = L/M, PNR = PLT/N, PWR = PLT/WBC, SII = PLT × N / L, all from first-day means; when the denominator is 0 the value is set to missing (6 for lymphocytes, 18 for monocytes, 1 for neutrophils) and imputed later | Avoids infinite values |
+| D2.11 | The distributions of lymphocytes, neutrophils and monocytes in the paper's Table 1 are abnormal because the white-cell differentials of different patients are on different scales (K/uL, %, #/uL): with our "absolute count" definition, NLR, LMR, SII and PWR are almost identical to the paper's (median NLR 6.82 vs 6.80, SII 1336 vs 1342). These ratios are unaffected when the three cell types of one patient are on the same scale, whereas PLR (159 vs 36) and PNR (22 vs 6.6), which involve platelets, deviate strongly. The mixed-definition diagnostic is in `unit_mixing_diagnostic.csv` | The paper's neutrophils_mean (SHAP rank 2) therefore partly reflects test format or period rather than a physiological quantity; PLR/PNR are distorted in the same way. This study does not copy it |
 
-## 3. 预处理与 Table 1（阶段 3）
+## 3. Preprocessing and Table 1 (stage 3)
 
-| # | 决策 | 理由 |
+| # | Decision | Rationale |
 |---|---|---|
-| D3.1 | 先固定分层 80/20 划分（random_state=42，按结局分层），保存为 `split.parquet`，两个预处理版本和阶段 4 共用 | 保证两个版本可比 |
-| D3.2 | 缺失率 > 20% 剔除，在全队列上判断（与论文一致）；实际没有变量被剔除（最大 7.04%），因此两个版本的变量集合相同 | 论文规则 |
-| D3.3 | 插补：连续变量用均值；二分类变量和序数计数评分（GCS、CCI）用众数（论文 "counting data"）。其余评分（SAPS-II、APS-III、LODS、OASIS）没有缺失 | 论文规则 |
-| D3.4 | **忠实版** `faithful_*`：插补与标准化（z-score）在全数据上拟合；**无泄露版** `noleak_*`：只在训练集上拟合，再应用到验证集。每个版本都保存插补后的原始尺度矩阵（给树模型和 SHAP 用）和标准化矩阵（给 LASSO、SVM、LR 用） | 用户要求两版都保留 |
-| D3.5 | **Table 1 用未插补的观测数据**（每个变量报告缺失率）；另外输出插补后的版本 `table1_after_imputation.csv` 以便和论文比较 | 论文在插补后统计（Calcium 8.17/8.69、PTT_max 43.78 等非整数值重复出现是均值插补的痕迹），这会压缩方差、扭曲中位数和 IQR |
-| D3.6 | 正态性：两组分别做 Shapiro-Wilk，均 p > 0.05 才视为正态（均值 ± SD、Welch t 检验），否则报中位数 (IQR) 和 Mann-Whitney U（两组时等价于 Kruskal-Wallis）；分类变量用 Pearson 卡方（不做连续性校正，与 SPSS 的 "Pearson Chi-Square" 一致）。样本量约 1,500 时 Shapiro-Wilk 对所有连续变量都拒绝正态，所以全部按非正态报告；CSV 另存了均值 ± SD 列 | 严格按指定方法；t 检验用 Welch 版本，不假设方差齐性，更稳健 |
+| D3.1 | First fix a stratified 80/20 split (random_state=42, stratified by outcome), saved as `split.parquet` and shared by both preprocessing versions and stage 4 | Keeps the two versions comparable |
+| D3.2 | Drop variables with > 20% missing, judged on the whole cohort (as in the paper); in practice no variable was dropped (maximum 7.04%), so both versions have the same variable set | Paper's rule |
+| D3.3 | Imputation: mean for continuous variables; mode for binary variables and ordinal count scores (GCS, CCI) (the paper's "counting data"). The other scores (SAPS-II, APS-III, LODS, OASIS) have no missing values | Paper's rule |
+| D3.4 | **Faithful version** `faithful_*`: imputation and standardisation (z-score) fitted on all data; **leakage-free version** `noleak_*`: fitted on the training set only and then applied to the validation set. Each version saves the imputed original-scale matrix (for tree models and SHAP) and the standardised matrix (for LASSO, SVM, LR) | The user asked to keep both versions |
+| D3.5 | **Table 1 uses the non-imputed observed data** (with the missing rate reported for each variable); an imputed version `table1_after_imputation.csv` is also produced for comparison with the paper | The paper computed its statistics after imputation (repeated non-integer values such as Calcium 8.17/8.69 and PTT_max 43.78 are traces of mean imputation), which compresses variance and distorts medians and IQRs |
+| D3.6 | Normality: Shapiro-Wilk in each group separately; normal only if both p > 0.05 (mean ± SD, Welch t-test), otherwise median (IQR) and Mann-Whitney U (equivalent to Kruskal-Wallis for two groups); categorical variables use Pearson chi-square (no continuity correction, matching SPSS "Pearson Chi-Square"). With about 1,500 patients Shapiro-Wilk rejects normality for every continuous variable, so all are reported as non-normal; the CSV also stores mean ± SD columns | Strictly follows the specified methods; the t-test uses the Welch version, which does not assume equal variances and is more robust |
 
-## 4. 建模与评估（阶段 4）
+## 4. Modelling and evaluation (stage 4)
 
-| # | 决策 | 理由 |
+| # | Decision | Rationale |
 |---|---|---|
-| D4.1 | LASSO：在训练集的标准化数据上做 L1 逻辑回归（glmnet 目标函数 −loglik/n + λ‖β‖₁，截距不惩罚；sklearn `C = 1/(nλ)`；求解器 liblinear（与 glmnet 同属 newGLMNET 坐标下降），`intercept_scaling=1e3` 使截距惩罚可忽略，与无惩罚截距的 saga 解的系数差 < 3e-5、非零模式一致；saga 在高度共线的 min/max 变量上收敛过慢；注意 sklearn 1.9 要用 `l1_ratio=1`）。λ 网格按 glmnet 默认：100 个对数等距值，从 λ_max 到 λ_max × 1e-4；10 折分层 CV（seed 42），指标为二项偏差；λ.min = CV 偏差最小处，λ.1se = 偏差不超过"最小值 + 1 SE"的最大 λ；最终用 λ.1se | 与 R glmnet 口径一致；用户指定二项偏差（论文 Fig. 2A 纵轴即 Binomial Deviance）|
-| D4.2 | 同一个 λ 在 R 与 Python 中含义相同（都是 glmnet 尺度），因此 λ 数值可以直接和论文比较（0.01056 / 0.02687）| — |
-| D4.3 | 模型只用 LASSO 选出的变量；RF/XGBoost 用插补后的原始尺度（树模型对单调变换不敏感，SHAP 值也以原始单位解释），SVM/LR 用标准化数据 | e1071 `svm()` 默认 `scale=TRUE`，即在标准化数据上训练 |
-| D4.4 | **论文超参数的 R → Python 对应**：RF `mtry=2` → `max_features=2`，`ntree=9` → `n_estimators=9`。论文同时写了 sklearn 风格的 `max_depth=10, min_samples_split=30, min_samples_leaf=10`，还写了与 mtry=2 冲突的 `max_features='sqrt'`（12 个变量时 sqrt 为 3）；以 mtry=2 为准。跑两版：**RF（字面参数）** 用上述全部参数；**RF（R 默认）** 模拟 `randomForest(ntree=9, mtry=2)`，即 nodesize=1、树完全生长。SVM：e1071 `radial, gamma=0.1, cost=1` → `SVC(rbf, gamma=0.1, C=1)`（同为 libsvm，核函数定义相同，概率都用 Platt 缩放）。XGBoost：`nrounds=50` → `n_estimators=50`，`eta=0.3` → `learning_rate=0.3`，其余参数同名。LR：R `glm` → 无惩罚的 `LogisticRegression(C=inf)` | 用户要求两版 RF 都跑。min_samples_leaf=10 的 9 棵树在本数据上训练集 AUC 只有 0.887，论文报告 0.999，与 R 默认（完全生长）的解释一致，但无法排除其他原因 |
-| D4.5 | 调参：训练集上 10 折分层 CV，以 AUC 为指标做网格搜索。RF：500 棵树 × max_features × min_samples_leaf × max_depth；XGBoost：n_estimators × max_depth × learning_rate × colsample × subsample × min_child_weight；SVM：C × gamma；LR：L2 惩罚 C（含 C=∞）。网格见 `04_model.py`，最优参数见 `tuned_hyperparameters.json`；SVM 在最优参数下重新拟合（开启 Platt 概率）| 论文提到用 caret 和 10 折 CV 调参，但没有报告网格 |
-| D4.6 | 指标：AUC 与 DeLong 95% CI（Sun & Xu 快速算法，已用 bootstrap 验证）；**死亡为阳性类**；accuracy、precision、recall、F1（及 specificity）最初用阈值 0.5，现保留作对照，主结果改用 Youden 阈值（D4.13） | 用户指定死亡为阳性。论文报告的 RF 验证集指标（0.721/0.735/0.858/0.792）只有以"存活"为阳性时才能自洽（验证集 163 存活 / 100 死亡时，TP=140、FP=50、TN=50 → acc 0.722），即 R caret 默认把第一个因子水平当阳性类的做法，本研究不照搬 |
-| D4.7 | "最佳模型"按**训练集 10 折 CV AUC** 选择（主分析：无泄露版 + 调参）；论文的最终配置（忠实版 + 论文超参数 + RF）作为对照，也做 DCA/CIC/SHAP。**推荐模型已由 D4.15 事后调整为无惩罚 LR**；按本规则选出的调参 RF 保留为次要结果 | 按验证集 AUC 选模型再报告同一验证集 AUC 会产生乐观偏倚 |
-| D4.8 | DCA：净获益 = TP/n − FP/n × pt/(1−pt)，同时画 treat-all 与 treat-none；CIC：每 1,000 人中被判为高风险的人数及其中真实死亡人数（rmda 口径，点估计），均在验证集上计算 | 标准定义 |
-| D4.9 | SHAP 在验证集上计算：树模型用 TreeExplainer（RF 为死亡类的概率尺度，XGBoost 为 log-odds），LR 用 LinearExplainer，SVM 用 KernelExplainer（30 个 k-means 背景点）。force plot 的 3 个病例各从一类中选：存活、院内死亡、出院后 1 年内死亡，每类取预测概率最接近该类中位数的病例（代表性病例，确定性选择；论文的 #156/#994/#1144 无法对应） | 论文的病例编号取决于其行顺序，无法复现 |
-| D4.10 | 敏感性分析：把高血压换成"仅无并发症高血压（401/I10）"后重新做 LASSO（无泄露版），看是否选入 | 对应 D2.9 |
-| D4.11 | 主分析中 RF 与 XGBoost 的训练集 CV AUC 并列（0.7998 vs 0.7998，差 < 1e-4），按预设规则（字典顺序中第一个最大值）选 RF；报告中说明两者等价，且 4 个调参模型的 CV AUC 相差 ≤ 0.007 | 如实记录；不事后改选模型 |
-| D4.12 | 校准（`04b_calibration.py`，基于保存的预测概率）：Brier score、scaled Brier、calibration-in-the-large（斜率固定为 1 时的截距）、校准斜率（logistic recalibration），验证集按预测概率十分位分 10 组画校准曲线。过拟合判定：训练集 AUC − 验证集 AUC > 0.10 或训练集 AUC > 0.95 记为过拟合 | 用户要求；临床预测模型的标准报告内容（TRIPOD） |
+| D4.1 | LASSO: L1 logistic regression on the standardised training data (glmnet objective −loglik/n + λ‖β‖₁, intercept not penalised; sklearn `C = 1/(nλ)`; solver liblinear (newGLMNET coordinate descent, like glmnet), with `intercept_scaling=1e3` so the intercept penalty is negligible; coefficients differ from the saga solution with an unpenalised intercept by < 3e-5 with the same non-zero pattern; saga converges too slowly on the highly collinear min/max variables; note that sklearn 1.9 requires `l1_ratio=1`). The λ grid follows the glmnet default: 100 log-spaced values from λ_max to λ_max × 1e-4; 10-fold stratified CV (seed 42) with binomial deviance as the metric; λ.min = the minimum CV deviance, λ.1se = the largest λ whose deviance does not exceed "minimum + 1 SE"; λ.1se is used in the end | Consistent with R glmnet; binomial deviance specified by the user (the y-axis of the paper's Fig. 2A is Binomial Deviance) |
+| D4.2 | A given λ means the same thing in R and Python (both on the glmnet scale), so λ values can be compared directly with the paper (0.01056 / 0.02687) | — |
+| D4.3 | The models use only the LASSO-selected variables; RF/XGBoost use the imputed original scale (tree models are insensitive to monotone transformations, and SHAP values are then interpreted in original units), SVM/LR use the standardised data | e1071 `svm()` defaults to `scale=TRUE`, i.e. trains on standardised data |
+| D4.4 | **R → Python mapping of the paper's hyperparameters**: RF `mtry=2` → `max_features=2`, `ntree=9` → `n_estimators=9`. The paper also gives sklearn-style `max_depth=10, min_samples_split=30, min_samples_leaf=10`, plus `max_features='sqrt'`, which conflicts with mtry=2 (sqrt is 3 with 12 variables); mtry=2 takes precedence. Two versions are run: **RF (literal parameters)** uses all the parameters above; **RF (R default)** mimics `randomForest(ntree=9, mtry=2)`, i.e. nodesize=1 with fully grown trees. SVM: e1071 `radial, gamma=0.1, cost=1` → `SVC(rbf, gamma=0.1, C=1)` (both libsvm, same kernel definition, both use Platt scaling for probabilities). XGBoost: `nrounds=50` → `n_estimators=50`, `eta=0.3` → `learning_rate=0.3`, other parameters have the same names. LR: R `glm` → unpenalised `LogisticRegression(C=inf)` | The user asked for both RF versions. With min_samples_leaf=10, the 9 trees reach a training AUC of only 0.887 on these data, whereas the paper reports 0.999, which is consistent with the R default (fully grown trees), though other causes cannot be ruled out |
+| D4.5 | Tuning: 10-fold stratified CV on the training set, grid search with AUC as the metric. RF: 500 trees × max_features × min_samples_leaf × max_depth; XGBoost: n_estimators × max_depth × learning_rate × colsample × subsample × min_child_weight; SVM: C × gamma; LR: L2 penalty C (including C=∞). Grids are in `04_model.py` and the best parameters in `tuned_hyperparameters.json`; SVM is refitted at the best parameters (with Platt probabilities enabled) | The paper mentions tuning with caret and 10-fold CV but does not report the grids |
+| D4.6 | Metrics: AUC with DeLong 95% CI (Sun & Xu fast algorithm, verified by bootstrap); **death is the positive class**; accuracy, precision, recall, F1 (and specificity) originally used a threshold of 0.5, which is now kept for comparison, and the main results use the Youden threshold instead (D4.13) | Death as the positive class was specified by the user. The paper's RF validation metrics (0.721/0.735/0.858/0.792) are internally consistent only when "survival" is the positive class (with 163 survivors / 100 deaths in the validation set, TP=140, FP=50, TN=50 → acc 0.722), i.e. R caret's default of treating the first factor level as the positive class; this study does not copy it |
+| D4.7 | The "best model" is chosen by **training-set 10-fold CV AUC** (main analysis: leakage-free version + tuning); the paper's final configuration (faithful version + paper hyperparameters + RF) serves as a comparison and also gets DCA/CIC/SHAP. **The recommended model was changed post hoc by D4.15 to unpenalised LR**; the tuned RF chosen by this rule is kept as a secondary result | Choosing a model by validation AUC and then reporting the AUC on the same validation set gives optimistic bias |
+| D4.8 | DCA: net benefit = TP/n − FP/n × pt/(1−pt), with treat-all and treat-none also drawn; CIC: per 1,000 people, the number classified as high risk and the number of true deaths among them (rmda definition, point estimates); both computed on the validation set | Standard definitions |
+| D4.9 | SHAP is computed on the validation set: TreeExplainer for tree models (probability scale of the death class for RF, log-odds for XGBoost), LinearExplainer for LR, KernelExplainer for SVM (30 k-means background points). The 3 force-plot cases are taken one from each class: survivor, in-hospital death, death within 1 year after discharge; in each class the case whose predicted probability is closest to the class median is chosen (representative case, deterministic choice; the paper's #156/#994/#1144 cannot be matched) | The paper's case numbers depend on its row order and cannot be reproduced |
+| D4.10 | Sensitivity analysis: replace hypertension with "uncomplicated hypertension only (401/I10)" and redo LASSO (leakage-free version) to see whether it is selected | Corresponds to D2.9 |
+| D4.11 | In the main analysis, the training-set CV AUCs of RF and XGBoost are tied (0.7998 vs 0.7998, difference < 1e-4); by the pre-specified rule (first maximum in lexicographic order) RF is chosen; the report states that the two are equivalent and that the CV AUCs of the 4 tuned models differ by ≤ 0.007 | Recorded as is; the model choice is not changed post hoc |
+| D4.12 | Calibration (`04b_calibration.py`, based on the saved predicted probabilities): Brier score, scaled Brier, calibration-in-the-large (intercept with the slope fixed at 1), calibration slope (logistic recalibration), and a calibration curve with the validation set split into 10 groups by predicted-probability decile. Overfitting criterion: training AUC − validation AUC > 0.10 or training AUC > 0.95 is recorded as overfitting | Requested by the user; standard reporting content for clinical prediction models (TRIPOD) |
 
-## 5. 报告（阶段 5）
+## 5. Report (stage 5)
 
-| # | 决策 | 理由 |
+| # | Decision | Rationale |
 |---|---|---|
-| D5.1 | 单患者 SHAP force plot（fig6c–e）显示个体的特征值，只保留在本机，已加入 .gitignore | 数据合规红线 |
-| D5.2 | **图的主次命名（2026-09-30 修订）**：名称带 `primary` 的图（fig5 DCA/CIC、fig6a–e SHAP）以推荐的无惩罚 LR 为主模型；按 D4.7 选出的调参 RF 改名为 `secondary` 保留；Fig. 3（ROC）和 Fig. 7（校准）新增 `*_noleak_main.png` 主图，包含无惩罚 LR 和四个调参模型。报告表格中，无惩罚 LR 单独列为 `recommended` 组（与论文参数组的 LR 是同一模型）；DeLong 比较分为 paper（不含 LR）、tuned、recommended（无惩罚 LR vs 其余 8 个模型）三组，各自做 Holm 校正 | 与 D4.15 的推荐模型保持一致，避免读者把推荐模型当作论文参数组的一员 |
+| D5.1 | Single-patient SHAP force plots (fig6c–e) show individual feature values, so they are kept only on the local machine and are in .gitignore | Data-compliance red line |
+| D5.2 | **Primary/secondary naming of figures (revised 2026-09-30)**: figures with `primary` in the name (fig5 DCA/CIC, fig6a–e SHAP) use the recommended unpenalised LR as the main model; the tuned RF chosen by D4.7 is renamed `secondary` and kept; Fig. 3 (ROC) and Fig. 7 (calibration) get new main figures `*_noleak_main.png` containing the unpenalised LR and the four tuned models. In the report tables, unpenalised LR is listed as a separate `recommended` group (it is the same model as the LR in the paper-parameter group); DeLong comparisons are split into three groups, paper (without LR), tuned and recommended (unpenalised LR vs the other 8 models), each with its own Holm correction | Consistent with the recommended model of D4.15, so readers do not take the recommended model for a member of the paper-parameter group |
 
-## 4c. 阈值、模型比较与推荐模型（`04c_threshold_compare.py`）
+## 4c. Thresholds, model comparison and recommended model (`04c_threshold_compare.py`)
 
-| # | 决策 | 理由 |
+| # | Decision | Rationale |
 |---|---|---|
-| D4.13 | **分类阈值 = 训练集 Youden 最佳阈值**：每个模型在训练集上做 10 折分层 CV（与调参相同的折，seed 42），得到折外（OOF）预测概率，取 sensitivity + specificity − 1 最大的阈值（预测 ≥ 阈值判为死亡）；固定该阈值，在验证集上报告 accuracy、precision、recall、F1、specificity 和被判阳性的比例。训练集样本内（apparent）预测的 Youden 阈值作为对照；阈值 0.5 的结果同时保留 | 用户要求在训练集上确定阈值；用 OOF 预测而不是样本内预测，是因为样本内预测对过拟合模型没有约束（RF R 默认：样本内 J = 0.98，阈值 0.556，OOF 阈值 0.333）。0.5 与 25% 的患病率不匹配，隐含"漏判与误判代价相同"，且把校准差异（RF 概率被压缩）误当作区分度差异 |
-| D4.14 | **模型比较 = 配对 DeLong 检验**（Sun & Xu 结构分量；ΔAUC 标准误已在模拟数据上与 2,000 次 bootstrap 核对，0.0229 vs 0.0230），在验证集上，每个参数集内部对所有模型两两比较，Holm 法校正多重比较（调参 6 对、论文参数 10 对）；同时报告未校正 p 和 ΔAUC 95% CI | 同一批患者上的 AUC 相关，独立样本比较会高估方差；两两比较需要多重校正 |
-| D4.15 | **推荐模型（两步事后调整，2026-09-30 修订）**：按预设规则 D4.7 选出的是调参 RF。（1）第一次调整：验证集配对 DeLong 检验中，调参 RF 与调参 LR 无显著差异（ΔAUC(RF − LR) = −0.010，−0.025 至 +0.006，p = 0.21；各调参模型两两经 Holm 校正均不显著），改为推荐 LR（当时为调参 L2 LR，C = 0.01）。（2）第二次调整：推荐模型改为**无惩罚 LR**（与 R `glm` 和论文参数版 LR 相同），调参 L2 LR 保留作对照，调参 RF 为次要结果。无惩罚 LR 与调参 RF 的 ΔAUC = +0.010（−0.008 至 +0.028），p = 0.26。`05_report.py` 对"RF 与两种 LR 的差异均不显著、调参模型 Holm 校正后均不显著"做断言，条件不成立时报告生成失败 | 区分度统计上无法区分时，优先选择更简约、校准更好、可直接用系数解释和实施的模型。在两种 LR 中：验证集 AUC 相同（0.803 vs 0.803，DeLong p = 0.96）；无惩罚 LR 的校准斜率 0.96，L2 LR 为 1.21（L2 惩罚把系数向 0 收缩，预测偏保守）；这一差异在训练集 10 折 OOF 预测上同样存在（0.93 vs 1.20，`lr_variants.csv`），因此不只是验证集的偶然结果。无惩罚 LR 还能给出 OR 的 95% CI 和 p 值；12 个变量对 395 例事件（每变量约 33 例事件），不需要惩罚来防止过拟合。**注意**：两次调整都是在看到验证集结果后由用户提出的，不属于预设分析计划。它们没有按"验证集 AUC 最高"选模型，乐观偏倚有限，但仍需外部验证确认。报告第 0 节如实写明了这一过程 |
-| D4.16 | **LR 解释**（2026-09-30 修订：推荐模型改为无惩罚 LR 后，SHAP 改在无惩罚 LR 上计算，L2 LR 的系数与 SHAP 排名作对照保留）：（1）调参 LR（L2，C = 0.01）的系数（每 SD 的 β 和 OR）；（2）同一训练集上无惩罚 LR（statsmodels GLM，与 R `glm` 和论文参数版 LR 相同，系数差 < 5e-3，来自 lbfgs 收敛容差）的 OR、Wald 95% CI、p 值，用于推断；（3）VIF 评估共线性；（4）调参 LR 在验证集上的 SHAP（LinearExplainer，对数优势尺度，训练集为背景）。LR 不另做单患者 force plot | 惩罚回归的系数没有标准的置信区间，推断用无惩罚模型；两者的验证集 AUC 相同（0.803）。线性模型的 SHAP 等于 β ×（x − 均值），与系数相互印证 |
-| D4.17 | **DCA 有用区间**的报告口径：从模型净获益首次同时高于 treat-all 和 treat-none 的阈值起，到净获益首次降到 ≤ 0 之前的最后一个阈值（`src/metrics.useful_range`）。低阈值端模型与 treat-all 曲线重合处的微小波动（±0.003）不截断区间 | 原来的"min–max"写法会把高阈值端噪声中的零星正值算进去（例如 LR 0.03–0.93，实际在约 0.73 已降到 0 以下）；严格要求连续则会在低阈值端被微小波动截断（XGBoost 只剩 0.02–0.02）。RF 与论文配置的区间在两种写法下相同 |
+| D4.13 | **Classification threshold = training-set Youden optimal threshold**: for each model, 10-fold stratified CV on the training set (the same folds as tuning, seed 42) gives out-of-fold (OOF) predicted probabilities, and the threshold that maximises sensitivity + specificity − 1 is taken (prediction ≥ threshold is classified as death); with that threshold fixed, accuracy, precision, recall, F1, specificity and the proportion classified positive are reported on the validation set. The Youden threshold from in-sample (apparent) training predictions is a comparison; the results at threshold 0.5 are also kept | The user asked for the threshold to be set on the training set; OOF rather than in-sample predictions are used because in-sample predictions place no constraint on overfitted models (RF R default: in-sample J = 0.98, threshold 0.556, OOF threshold 0.333). 0.5 does not match the 25% prevalence, implicitly assumes equal costs of missed and false classifications, and mistakes calibration differences (compressed RF probabilities) for differences in discrimination |
+| D4.14 | **Model comparison = paired DeLong test** (Sun & Xu structural components; the standard error of ΔAUC was checked against 2,000 bootstrap replicates on simulated data, 0.0229 vs 0.0230), on the validation set, comparing all models pairwise within each parameter set, with Holm correction for multiple comparisons (6 pairs for tuned, 10 for paper parameters); uncorrected p and ΔAUC 95% CI are also reported | AUCs on the same patients are correlated, so independent-sample comparisons overestimate the variance; pairwise comparisons need multiplicity correction |
+| D4.15 | **Recommended model (two post-hoc adjustments, revised 2026-09-30)**: the pre-specified rule D4.7 selected the tuned RF. (1) First adjustment: in the validation-set paired DeLong test the tuned RF and tuned LR did not differ significantly (ΔAUC(RF − LR) = −0.010, −0.025 to +0.006, p = 0.21; no pair of tuned models was significant after Holm correction), so LR was recommended instead (at that time the tuned L2 LR, C = 0.01). (2) Second adjustment: the recommended model was changed to **unpenalised LR** (the same as R `glm` and the paper-parameter LR); the tuned L2 LR is kept as a comparison and the tuned RF is a secondary result. ΔAUC of unpenalised LR vs tuned RF = +0.010 (−0.008 to +0.028), p = 0.26. `05_report.py` asserts that "the differences between RF and both LRs are not significant, and no tuned model differs after Holm correction"; report generation fails if this does not hold | When discrimination cannot be distinguished statistically, prefer the model that is more parsimonious, better calibrated, and directly interpretable and implementable through its coefficients. Between the two LRs: same validation AUC (0.803 vs 0.803, DeLong p = 0.96); the calibration slope of unpenalised LR is 0.96 versus 1.21 for L2 LR (the L2 penalty shrinks coefficients toward 0, making predictions conservative); the same difference is present in the training-set 10-fold OOF predictions (0.93 vs 1.20, `lr_variants.csv`), so it is not a chance result of the validation set. Unpenalised LR also gives 95% CIs and p-values for the ORs; with 12 variables and 395 events (about 33 events per variable), no penalty is needed to prevent overfitting. **Note**: both adjustments were proposed by the user after seeing the validation results and are not part of a pre-specified analysis plan. They did not pick the model with "the highest validation AUC", so the optimistic bias is limited, but external validation is still needed. Section 0 of the report describes this process as it happened |
+| D4.16 | **LR interpretation** (revised 2026-09-30: after the recommended model changed to unpenalised LR, SHAP is computed on unpenalised LR, and the coefficients and SHAP ranking of L2 LR are kept as a comparison): (1) coefficients of the tuned LR (L2, C = 0.01) (β per SD and OR); (2) ORs, Wald 95% CIs and p-values of unpenalised LR on the same training set (statsmodels GLM, the same as R `glm` and the paper-parameter LR; coefficient differences < 5e-3, from the lbfgs convergence tolerance), for inference; (3) VIF to assess collinearity; (4) SHAP of the tuned LR on the validation set (LinearExplainer, log-odds scale, training set as background). No single-patient force plot is made for LR | Penalised regression coefficients have no standard confidence intervals, so inference uses the unpenalised model; both have the same validation AUC (0.803). For a linear model SHAP equals β × (x − mean), which corroborates the coefficients |
+| D4.17 | Reporting of the **DCA useful range**: from the threshold at which the model's net benefit first exceeds both treat-all and treat-none, up to the last threshold before the net benefit first falls to ≤ 0 (`src/metrics.useful_range`). Tiny fluctuations (±0.003) where the model coincides with the treat-all curve at low thresholds do not cut the range | The original "min–max" wording counted sporadic positive values in the noise at high thresholds (e.g. LR 0.03–0.93, when it actually falls below 0 at about 0.73); strictly requiring continuity would cut the range at tiny fluctuations at low thresholds (XGBoost would be left with only 0.02–0.02). The ranges of RF and the paper configuration are the same under both wordings |
 
-## 4d/4e. 嵌套交叉验证与敏感性分析
+## 4d/4e. Nested cross-validation and sensitivity analysis
 
-| # | 决策 | 理由 |
+| # | Decision | Rationale |
 |---|---|---|
-| D4.18 | **LASSO 与 CV 的关系（核查与处理）**。原实现：`04_model.py` 在整个训练集（1,568 人）上做一次 LASSO（内层 10 折 CV 选 λ.1se），得到 12 个变量；随后在这 12 个变量上做 10 折 CV（论文参数版用 `cross_val_score`，调参版用 `GridSearchCV.best_score_`）。每一折的验证部分都参与过变量选择，因此"10 折 CV AUC"含有变量选择带来的乐观偏倚。处理：`04d_nested_cv.py` 实现嵌套版本。外层用与阶段 4 相同的 10 折，每折的训练部分重新拟合插补、标准化和 LASSO（λ.1se），然后拟合模型，在该折的验证部分评估。超参数固定为阶段 4 的值，只隔离变量选择的偏倚。同时在相同折上复算非嵌套 CV，与阶段 4 的数值核对（差 < 1e-3）。偏倚大小见 `nested_cv_auc.csv` 和报告 6.6 | 变量选择必须在 CV 的每一折内部重复，CV 估计才无偏。验证集 AUC 不受影响，因为验证集从未参与 LASSO。调参没有一起嵌套：RF/XGBoost 网格（100/288 组合 × 10 × 10 折）在 8GB 内存的机器上代价过高，这部分残余乐观偏倚在报告局限性中说明 |
-| D4.19 | **2020–2022 年敏感性分析**：排除 `anchor_year_group = "2020 - 2022"` 的患者，在剩余人群中重跑建模全流程。步骤为：重新分层 80/20 划分（seed 42），>20% 缺失筛选，在新训练集上拟合插补/标准化，LASSO λ.1se，无惩罚 LR，调参 RF（与阶段 4 相同的网格和 10 折 CV），然后在新验证集上计算 AUC（DeLong 95% CI）、配对 DeLong、Brier/校准斜率和 SHAP 前 5（`04e_sensitivity_pre2020.py`）。稳健性判定标准（在敏感性分析运行前写明；在本次修订中制定，并非项目开始时预设）：两个模型的验证集 AUC 变化均 ≤ 0.05，LR 与 RF 仍无显著差异，RDW 和 CCI 仍在 LR 的 SHAP 前 3 | 论文使用的 v2.x 只到 2019 年，且 2020–2022 年受新冠疫情影响。口径 C 按患者选择索引住院，排除整名患者不改变其他患者的索引，因此直接筛选最终队列等价于重跑阶段 1。`anchor_year_group` 是患者层面的锚定年份区间，不是索引住院的真实年份，只能近似"排除 2020 年以后的住院" |
+| D4.18 | **Relationship between LASSO and CV (check and handling)**. Original implementation: `04_model.py` runs LASSO once on the whole training set (1,568 patients) (inner 10-fold CV to choose λ.1se), giving 12 variables; then 10-fold CV is run on these 12 variables (`cross_val_score` for the paper-parameter version, `GridSearchCV.best_score_` for the tuned version). The validation part of every fold took part in variable selection, so the "10-fold CV AUC" contains optimistic bias from variable selection. Handling: `04d_nested_cv.py` implements a nested version. The outer loop uses the same 10 folds as stage 4; in each fold the training part refits imputation, standardisation and LASSO (λ.1se), then fits the model and evaluates it on the validation part of that fold. Hyperparameters are fixed at the stage-4 values, isolating only the bias from variable selection. The non-nested CV is also recomputed on the same folds and checked against the stage-4 values (difference < 1e-3). The size of the bias is in `nested_cv_auc.csv` and report 6.6 | Variable selection must be repeated inside every CV fold for the CV estimate to be unbiased. The validation-set AUC is unaffected because the validation set never took part in LASSO. Tuning was not nested as well: the RF/XGBoost grids (100/288 combinations × 10 × 10 folds) are too expensive on an 8 GB machine; the remaining optimistic bias from this is described in the report's limitations |
+| D4.19 | **2020–2022 sensitivity analysis**: exclude patients with `anchor_year_group = "2020 - 2022"` and rerun the whole modelling pipeline in the remaining population. Steps: new stratified 80/20 split (seed 42), > 20% missingness screening, imputation/standardisation fitted on the new training set, LASSO λ.1se, unpenalised LR, tuned RF (same grid and 10-fold CV as stage 4), then AUC (DeLong 95% CI), paired DeLong, Brier/calibration slope and SHAP top 5 on the new validation set (`04e_sensitivity_pre2020.py`). Robustness criteria (written down before the sensitivity analysis was run; set in this revision, not pre-specified at the start of the project): the validation AUC of both models changes by ≤ 0.05, LR and RF still do not differ significantly, and RDW and CCI are still in the SHAP top 3 of LR | The v2.x used by the paper runs only to 2019, and 2020–2022 was affected by the COVID-19 pandemic. Definition C chooses the index hospitalization per patient, and excluding whole patients does not change the index of the other patients, so filtering the final cohort directly is equivalent to rerunning stage 1. `anchor_year_group` is a patient-level anchor-year interval, not the true year of the index hospitalization, so it only approximates "excluding hospitalizations from 2020 onward" |
 
-## 8. 阶段 8 分析计划（预设）
+## 8. Stage 8 analysis plan (pre-specified)
 
-**状态**：2026-10-01 写定，此时阶段 8 的任何新分析（8b–8e）都还没有运行。用户确认后才开始执行。执行中如需改动本计划，以"修订（日期、原因）"的形式追加在对应条目后，原文保留；规则不因看到的结果而改变。
+**Status**: written on 2026-10-01, when none of the new stage-8 analyses (8b–8e) had been run. Execution started only after the user confirmed. If the plan needs to change during execution, the change is appended after the relevant entry as "Revision (date, reason)", keeping the original text; rules are not changed because of results that have been seen.
 
-**已知信息的如实说明**：
-- **口径 C**：本计划写定时已看过口径 C 在阶段 4–7 的全部结果，包括单次验证集 AUC、"仅 LASSO 嵌套"的 CV（推荐 LR 0.781，调参模型 0.783–0.789）和 2020–2022 年敏感性分析。因此对口径 C 而言，下述规则不是盲态的。
-- **口径 A**：只看过人数（837 人，189 例死亡），没有任何模型结果。
-- **CLIN**：没有任何结果。
+**Honest statement of what was already known**:
+- **Definition C**: when this plan was written, all definition C results from stages 4–7 had been seen, including the single validation-set AUC, the "LASSO-only nested" CV (recommended LR 0.781, tuned models 0.783–0.789) and the 2020–2022 sensitivity analysis. For definition C, therefore, the rules below are not blinded.
+- **Definition A**: only the counts had been seen (837 patients, 189 deaths), no model results at all.
+- **CLIN**: no results at all.
 
-编号 D8.x。
+Numbered D8.x.
 
-**确认时的修改（2026-10-01，用户确认计划时提出，尚未运行任何阶段 8 分析）**：
-1. 白细胞分类只设 1 个指示变量，比值变量直接插补（D8.4）；
-2. 等价规则改为"差值 ≤ 0.01，或（校正 95% CI 跨 0 且差值 ≤ 0.02）"（D8.8）；
-3. 586/N19 的处理与计数（D8.3）；
-4. 降级为 3 次重复时，配对比较只用共同的 3 次划分（D8.5、D8.6）；
-5. CLIN 队列流程表列出每一步排除的人数（D8.1）。
+**Changes at confirmation (2026-10-01, proposed by the user when confirming the plan, before any stage-8 analysis was run)**:
+1. Only 1 indicator variable for the white-cell differential; ratio variables are imputed directly (D8.4);
+2. The equivalence rule becomes "difference ≤ 0.01, or (corrected 95% CI crosses 0 and difference ≤ 0.02)" (D8.8);
+3. Handling and counting of 586/N19 (D8.3);
+4. When downgraded to 3 repeats, paired comparisons use only the 3 common splits (D8.5, D8.6);
+5. The CLIN cohort flow table lists the number excluded at each step (D8.1).
 
-### D8.1 队列与命名
+### D8.1 Cohorts and naming
 
-| 线 | 队列 | 定义 | 已知人数 | 角色 |
+| Track | Cohort | Definition | Known counts | Role |
 |---|---|---|---|---|
-| 复现线 | **口径 A** | 患者全部住院中的首次住院同时含 DN 编码和 ICU 入住，取该住院的首次 ICU stay（D1.2 的口径 A），之后按论文顺序应用 LOS > 48 h、年龄 > 18、CBC 8 项完整 | 837 / 189 死亡（旧结局定义） | 按论文字面定义的队列。plans 中称其为"严格复现队列"，但按 8f 的要求，报告全文不使用"严格复现"一词，写作"口径 A（论文字面口径）" |
-| 复现线 | **口径 C** | 首个同时含 DN 编码和 ICU 的住院及其首次 ICU stay（D1.2），排除条件同上 | 1,960 / 494 死亡（旧结局定义） | 扩展队列，报告中命名为 "first eligible DN-ICU admission" |
-| 临床线 | **CLIN** | 索引住院与口径 C 相同（首个同时含 DN 编码和 ICU 的住院），取该住院的首次 ICU stay；预测时点 = ICU 入科后 24 h | 未知 | 临床改良模型 |
+| Replication track | **Definition A** | The first of all the patient's hospitalizations has both a DN code and an ICU stay; take the first ICU stay of that hospitalization (definition A of D1.2), then apply LOS > 48 h, age > 18 and complete 8-item CBC in the paper's order | 837 / 189 deaths (old outcome definition) | The cohort under the paper's literal definition. The plans called it the "strict replication cohort", but as required by 8f the report never uses the term "strict replication" and writes "definition A (the paper's literal definition)" instead |
+| Replication track | **Definition C** | The first hospitalization with both a DN code and an ICU stay, and its first ICU stay (D1.2); exclusions as above | 1,960 / 494 deaths (old outcome definition) | Extended cohort, named "first eligible DN-ICU admission" in the report |
+| Clinical track | **CLIN** | Same index hospitalization as definition C (the first hospitalization with both a DN code and an ICU stay), taking the first ICU stay of that hospitalization; prediction time = 24 h after ICU admission | unknown | Clinically improved model |
 
-- **CLIN 纳入条件**（只用预测时点已知的信息）：
-  - 年龄 ≥ 18（成人）。
-  - 入科 24 h 时仍在 ICU：首次 ICU stay 的 `outtime` > `intime + 24 h`。
-  - 入科 24 h 时存活：`admissions.deathtime` 为空或 > `intime + 24 h`；`dod` 为空或 ≥ date(intime + 24 h)。
-  - 首次 ICU stay 不足 24 h 的患者直接排除，不改用同一住院中后来的 ICU stay。
-  - 不使用 LOS > 48 h，不要求 CBC 完整。
-  - **队列流程表**（`results/clinical/cohort_flow_clin.csv`，报告中列出）逐步给出剩余人数和本步排除人数：
-    1. 有含 DN 编码且有 ICU 的住院的患者（与口径 C 的第 [1b] 步相同）；
-    2. 取索引住院的首次 ICU stay；
-    3. 年龄 ≥ 18；
-    4. 排除首次 ICU stay < 24 h 但 24 h 前未死亡的患者（转出 ICU）；
-    5. 排除入科 24 h 前死亡的患者。
+- **CLIN inclusion criteria** (using only information known at the prediction time):
+  - Age ≥ 18 (adults).
+  - Still in the ICU at 24 h after admission: `outtime` of the first ICU stay > `intime + 24 h`.
+  - Alive at 24 h after admission: `admissions.deathtime` is null or > `intime + 24 h`; `dod` is null or ≥ date(intime + 24 h).
+  - Patients whose first ICU stay is shorter than 24 h are excluded outright; a later ICU stay in the same hospitalization is not used instead.
+  - LOS > 48 h is not used and a complete CBC is not required.
+  - **Cohort flow table** (`results/clinical/cohort_flow_clin.csv`, listed in the report) gives, step by step, the number remaining and the number excluded at this step:
+    1. Patients with a hospitalization that has a DN code and an ICU stay (the same as step [1b] of definition C);
+    2. Take the first ICU stay of the index hospitalization;
+    3. Age ≥ 18;
+    4. Exclude patients whose first ICU stay is < 24 h but who did not die before 24 h (transferred out of the ICU);
+    5. Exclude patients who died before 24 h after admission.
 
-    第 4、5 步分开计数：若患者在 24 h 内死亡且 ICU stay 也 < 24 h，计入第 5 步"24 h 前死亡"。每一步同时报告剩余人数中的 1 年死亡数。
-- **复现线**保留论文的 LOS > 48 h、CBC 完整和索引住院共病。局限性中说明两点：LOS > 48 h 依赖预测时点之后的信息，造成选择偏倚；诊断编码没有时间戳。
-- **结局**：三条线统一使用 8b 的新定义，即死亡日期 ∈ [date(intime), date(intime) + 365 天]，院内死亡用 `deathtime`，院外死亡用 `dod`，在日期粒度比较。8b 若改变了人数或死亡数，以 8b 结果为准更新上表。
+    Steps 4 and 5 are counted separately: if a patient died within 24 h and the ICU stay was also < 24 h, they are counted in step 5, "died before 24 h". Each step also reports the number of one-year deaths among those remaining.
+- The **replication track** keeps the paper's LOS > 48 h, complete CBC and index-hospitalization comorbidities. Two points are described in the limitations: LOS > 48 h depends on information after the prediction time, causing selection bias; diagnosis codes have no timestamps.
+- **Outcome**: all three tracks use the new 8b definition, i.e. date of death ∈ [date(intime), date(intime) + 365 days], with `deathtime` for in-hospital deaths and `dod` for out-of-hospital deaths, compared at date granularity. If 8b changes the counts or deaths, the table above is updated to the 8b results.
 
-- **修订（2026-10-03）：取消口径 A 的建模**。原文保留。
-  - **决定**：复现线只对口径 C 建模。口径 A 不再做完整嵌套 CV、最终模型、SHAP，也不做 A/C 一致性判定（见 D8.7 修订）。
-  - **理由**：
-    1. 口径 A 按"一生首次住院"定义，同时含 DN 编码和 ICU 入住的住院必须是患者的第一次住院。患者只要此前有过任何住院就被排除，即使后来的住院完全满足条件。排除与否取决于就诊史，会引入选择偏倚（D1.2）。
-    2. 样本量小（837 人 / 189 例死亡），模型之间的比较缺乏统计效力。
-    3. 审阅意见第 3 条，只需如实命名口径 C，并说明它与论文字面口径的差异，即可回应。
-  - **时间点**：该决定在口径 A 没有任何模型结果时做出（此前只看过人数与死亡数）。
-  - **报告中的口径 A、B、D**：只保留队列流程与死亡率，作为对论文索引定义不同理解的描述。第 2.2 节删除"口径选择不改变结论"，只陈述四种口径的人数与死亡率。
-  - **措辞**：报告写"本研究采用口径 C"，不写"论文使用口径 C"，因为论文没有说明具体的操作定义。上表中口径 A 的"角色"一栏不再适用。
+- **Revision (2026-10-03): modelling of definition A cancelled**. Original text kept.
+  - **Decision**: the replication track models only definition C. Definition A no longer gets full nested CV, a final model or SHAP, and no A/C consistency judgement is made (see the D8.7 revision).
+  - **Rationale**:
+    1. Definition A uses the "first hospitalization in life", so the hospitalization with both a DN code and an ICU stay must be the patient's first hospitalization. A patient is excluded if they had any earlier hospitalization, even if a later hospitalization fully meets the criteria. Whether a patient is excluded depends on care history, which introduces selection bias (D1.2).
+    2. The sample is small (837 patients / 189 deaths), so comparisons between models lack statistical power.
+    3. Review comment 3 can be answered simply by naming definition C honestly and describing how it differs from the paper's literal definition.
+  - **Timing**: the decision was made when there were no model results for definition A (only the counts and deaths had been seen).
+  - **Definitions A, B and D in the report**: only the cohort flow and mortality are kept, as a description of different readings of the paper's index definition. Section 2.2 drops "the choice of definition does not change the conclusions" and states only the counts and mortality of the four definitions.
+  - **Wording**: the report says "this study uses definition C", not "the paper used definition C", because the paper does not give a specific operational definition. The "Role" column for definition A in the table above no longer applies.
 
-### D8.2 特征时间窗与共病来源
+### D8.2 Feature time windows and comorbidity sources
 
-| 项目 | 复现线（口径 A、C） | 临床线 CLIN |
+| Item | Replication track (definitions A, C) | Clinical track CLIN |
 |---|---|---|
-| 化验 | mimic-code 首日：[intime − 6 h, intime + 24 h]（D1.5、D2.3） | 同左 |
-| 生命体征 | [intime, intime + 24 h]（D2.6） | 同左 |
-| 评分（SAPS-II、APS-III、LODS、OASIS、GCS） | mimic-code 首日概念，不改 | 同左；SAPS-II 的慢性病项按下文重算 |
-| 6 个共病变量（心梗、心衰、慢性肺病、肾病、高血压、肥胖） | 索引住院 `diagnoses_icd`（论文条件，D2.8、D2.9） | 既往住院诊断 ∪ 索引住院中的慢性病编码（D8.3） |
-| CCI | mimic-code `charlson_comorbidity_index`，**含年龄分**（D2.8 不变） | 只含共病分，不含年龄分（按 D8.3 的来源重算） |
-| SAPS-II 慢性病项 | mimic-code 原值（索引住院） | 既往 ∪ 索引住院重算 |
+| Labs | mimic-code first day: [intime − 6 h, intime + 24 h] (D1.5, D2.3) | same as left |
+| Vital signs | [intime, intime + 24 h] (D2.6) | same as left |
+| Scores (SAPS-II, APS-III, LODS, OASIS, GCS) | mimic-code first-day concepts, unchanged | same as left; the chronic-disease items of SAPS-II are recomputed as below |
+| 6 comorbidity variables (MI, heart failure, chronic pulmonary disease, renal disease, hypertension, obesity) | index-hospitalization `diagnoses_icd` (paper's condition, D2.8, D2.9) | prior-hospitalization diagnoses ∪ chronic-disease codes in the index hospitalization (D8.3) |
+| CCI | mimic-code `charlson_comorbidity_index`, **including age points** (D2.8 unchanged) | comorbidity points only, no age points (recomputed from the D8.3 sources) |
+| SAPS-II chronic-disease items | original mimic-code values (index hospitalization) | recomputed from prior ∪ index hospitalization |
 
-**CCI 的年龄分（已从代码核实，未运行数据）**：`external/mimic-code/mimic-iv/concepts_duckdb/comorbidity/charlson.sql` 中，`charlson_comorbidity_index = age_score + 各共病分`。`age_score` 按年龄 < 50、50–59、60–69、70–79、≥ 80 分别计 0–4 分。
-- **复现线**：保留原定义，与阶段 2–7 及论文可比。报告 8.1 节对 CCI 的 OR 的解读要改为：CCI 含 0–4 分年龄分，且 age 已单独进入模型；CCI 的 OR 是在 age 固定时的条件效应，主要反映共病负担和年龄分组中未被线性 age 捕捉的部分，不能解读为纯共病效应。
-- **CLIN**：用只含共病分的 CCI，避免与 age 重复计入。
+**Age points in CCI (verified from the code, no data run)**: in `external/mimic-code/mimic-iv/concepts_duckdb/comorbidity/charlson.sql`, `charlson_comorbidity_index = age_score + the comorbidity points`. `age_score` gives 0–4 points for age < 50, 50–59, 60–69, 70–79 and ≥ 80 respectively.
+- **Replication track**: keeps the original definition, comparable with stages 2–7 and the paper. The interpretation of the CCI OR in report Section 8.1 must change to: CCI includes 0–4 age points and age already enters the model separately; the CCI OR is a conditional effect at fixed age, mainly reflecting comorbidity burden and the part of the age grouping not captured by linear age, and cannot be read as a pure comorbidity effect.
+- **CLIN**: uses a CCI with comorbidity points only, to avoid counting age twice.
 
-**糖尿病项（已从代码核实）**：
-- 论文的 14 个 DN 编码（ICD-9 2506x；ICD-10 E104x、E114x）全部落在 charlson 的 `diabetes_with_cc` 编码表（2504–2507；E102–E105、E107、E112–E115、E117 …）内。
-- 因此三条线中每位患者的糖尿病项都是 2 分（常数），对 CCI 只造成平移，不影响模型。
-- 8d 只需用聚合计数确认 `diabetes_with_cc = 1` 的比例为 100%。
+**Diabetes item (verified from the code)**:
+- All 14 of the paper's DN codes (ICD-9 2506x; ICD-10 E104x, E114x) fall within the charlson `diabetes_with_cc` code list (2504–2507; E102–E105, E107, E112–E115, E117 …).
+- So for every patient in all three tracks the diabetes item is 2 points (a constant), which only shifts CCI and does not affect the models.
+- 8d only needs to confirm with an aggregate count that the proportion with `diabetes_with_cc = 1` is 100%.
 
-**SAPS-II 慢性病项（已从代码核实）**：
-- `score/sapsii.sql` 的 `comorb` 子查询从 `mimiciv_hosp.diagnoses_icd` 按 `hadm_id`（即索引住院）判断三项：AIDS（17 分）、血液系统恶性肿瘤（10 分）、转移癌（9 分），取三者中的最高分。
-- **复现线**：不改。
-- **CLIN**：用同一编码表在"既往住院 ∪ 索引住院"上重算 `comorbidity_score`，然后 `sapsii_clin = sapsii − 原 comorbidity_score + 重算 comorbidity_score`。三项都是慢性病，索引住院中的编码全部保留，因此实际上只会增加由既往住院补充的病例。
+**SAPS-II chronic-disease items (verified from the code)**:
+- The `comorb` subquery in `score/sapsii.sql` checks three items in `mimiciv_hosp.diagnoses_icd` by `hadm_id` (i.e. the index hospitalization): AIDS (17 points), haematological malignancy (10 points) and metastatic cancer (9 points), taking the highest of the three.
+- **Replication track**: unchanged.
+- **CLIN**: recompute `comorbidity_score` with the same code list on "prior hospitalizations ∪ index hospitalization", then `sapsii_clin = sapsii − original comorbidity_score + recomputed comorbidity_score`. All three items are chronic diseases and all codes in the index hospitalization are kept, so in practice this only adds cases supplied by prior hospitalizations.
 
-**口径 C 的共病时间敏感性分析（8d）**：
-- CCI 改用"既往住院 ∪ 索引住院慢性病编码"（D8.3 的规则）重算，保留年龄分，以便与复现线主分析比较。
-- SAPS-II 慢性病项按上文同样重算。
-- 只对推荐 LR 和调参 RF 重跑完整嵌套 CV（D8.5），与主分析对比。
+**Comorbidity-timing sensitivity analysis for definition C (8d)**:
+- CCI is recomputed from "prior hospitalizations ∪ chronic-disease codes of the index hospitalization" (the D8.3 rule), keeping the age points, for comparison with the replication-track main analysis.
+- The SAPS-II chronic-disease items are recomputed in the same way as above.
+- Full nested CV (D8.5) is rerun only for the recommended LR and the tuned RF, and compared with the main analysis.
 
-### D8.3 CLIN 的共病规则与从索引住院中剔除的急性编码
+### D8.3 CLIN comorbidity rules and acute codes removed from the index hospitalization
 
-- **既往住院**：同一患者 `dischtime` < 索引住院 `admittime` 的全部住院。其诊断编码全部计入，不论急慢性。既往住院中的急性心梗、卒中等本身就是病史。
-- **索引住院**：剔除下表中的急性事件编码，其余编码计入。
-- **编码匹配**：编码去点后按前缀匹配，并按 `icd_version` 区分 ICD-9 与 ICD-10（同 D1.1）。
-- **编码表**：共病判定使用的编码表与 mimic-code charlson（及高血压、肥胖的 Quan-Elixhauser 表，D2.9）完全相同。下表只列出从索引住院中额外剔除的部分。
+- **Prior hospitalizations**: all hospitalizations of the same patient with `dischtime` < the index hospitalization's `admittime`. All their diagnosis codes count, acute or chronic. An acute MI, stroke and the like in a prior hospitalization is itself medical history.
+- **Index hospitalization**: the acute-event codes in the table below are removed; the remaining codes count.
+- **Code matching**: codes are stripped of dots and matched by prefix, distinguishing ICD-9 and ICD-10 by `icd_version` (as in D1.1).
+- **Code lists**: the code lists used to define comorbidities are exactly those of mimic-code charlson (and the Quan-Elixhauser lists for hypertension and obesity, D2.9). The table below lists only what is additionally removed from the index hospitalization.
 
-| 共病 | 从索引住院剔除（急性事件） | 保留（举例） | 理由 |
+| Comorbidity | Removed from the index hospitalization (acute events) | Kept (examples) | Rationale |
 |---|---|---|---|
-| 心梗 | ICD-9 410.x；ICD-10 I21.x、I22.x | 412、I25.2（陈旧性心梗） | 410/I21/I22 是本次住院的急性事件 |
-| 心衰 | ICD-9 428.21、428.31、428.41；ICD-10 I50.21、I50.31、I50.41、I50.811 | 慢性及慢性急性加重（428.22/23、I50.22/23 等）、未特指（428.0、428.9、I50.9） | 只剔除明确标注"急性"、且没有"慢性"成分的编码；未特指的无法区分，保留 |
-| 慢性肺病 | 无 | 全部 | 编码表均为慢性病；急性加重编码（如 491.21、J44.1）本身意味着 COPD |
-| 肾病 | ICD-9 586；ICD-10 N19（未特指的肾衰竭） | N18.x、585.x、透析状态（V45.1、Z99.2）等 | 586/N19 在 Quan-Charlson 肾病定义内，但在索引住院中常用于编码 AKI，因此主分析从索引住院中剔除。AKI 编码 584.x/N17.x 不在 charlson 表内，任何来源都不计入。见下方的计数与敏感性分析 |
-| 高血压 | 无 | 全部（含 I16 高血压危象） | 危象意味着已有高血压 |
-| 肥胖 | 无 | 全部 | — |
-| 脑血管病 | ICD-9 430–436、362.34；ICD-10 I60–I64、G45、G46、H34.0 | 437.x、438.x（后遗症）、I65–I69 | 急性卒中/TIA 是本次事件；后遗症编码代表既往病史 |
-| 周围血管病 | ICD-9 441.0x；ICD-10 I71.0（主动脉夹层） | 440.x、441 其余、I70、I71 其余等 | 夹层为急性事件 |
-| 消化性溃疡 | ICD-9 531–534 的第 4 位 .0–.3（急性）；ICD-10 K25–K28 的 .0–.3（急性） | 第 4 位 .4–.7（慢性）、.9（未特指） | ICD 第 4 位区分急性与慢性 |
-| 轻度肝病 | ICD-9 570；ICD-10 K76.2 | 571.x、B18、K70.0–K70.3、K73、K74 等 | 570 是急性/亚急性肝坏死，K76.2 是休克肝 |
-| 痴呆、风湿病、重度肝病、糖尿病、偏瘫/截瘫、恶性肿瘤、转移癌、AIDS | 无 | 全部 | 慢性病编码。局限性中说明：偏瘫编码可能来自本次住院的急性卒中 |
+| Myocardial infarction | ICD-9 410.x; ICD-10 I21.x, I22.x | 412, I25.2 (old MI) | 410/I21/I22 are acute events of this hospitalization |
+| Heart failure | ICD-9 428.21, 428.31, 428.41; ICD-10 I50.21, I50.31, I50.41, I50.811 | chronic and acute-on-chronic (428.22/23, I50.22/23 etc.), unspecified (428.0, 428.9, I50.9) | Only codes explicitly labelled "acute" with no "chronic" component are removed; unspecified codes cannot be distinguished and are kept |
+| Chronic pulmonary disease | none | all | All codes in the list are chronic; exacerbation codes (e.g. 491.21, J44.1) themselves imply COPD |
+| Renal disease | ICD-9 586; ICD-10 N19 (unspecified renal failure) | N18.x, 585.x, dialysis status (V45.1, Z99.2) etc. | 586/N19 are in the Quan-Charlson renal disease definition but are often used to code AKI in the index hospitalization, so the main analysis removes them from the index hospitalization. The AKI codes 584.x/N17.x are not in the charlson list and do not count from any source. See the count and sensitivity analysis below |
+| Hypertension | none | all (including I16 hypertensive crisis) | A crisis implies existing hypertension |
+| Obesity | none | all | — |
+| Cerebrovascular disease | ICD-9 430–436, 362.34; ICD-10 I60–I64, G45, G46, H34.0 | 437.x, 438.x (late effects), I65–I69 | Acute stroke/TIA is the current event; late-effect codes represent past history |
+| Peripheral vascular disease | ICD-9 441.0x; ICD-10 I71.0 (aortic dissection) | 440.x, the rest of 441, I70, the rest of I71 etc. | Dissection is an acute event |
+| Peptic ulcer | ICD-9 531–534 with 4th digit .0–.3 (acute); ICD-10 K25–K28 .0–.3 (acute) | 4th digit .4–.7 (chronic), .9 (unspecified) | The ICD 4th digit distinguishes acute from chronic |
+| Mild liver disease | ICD-9 570; ICD-10 K76.2 | 571.x, B18, K70.0–K70.3, K73, K74 etc. | 570 is acute/subacute liver necrosis, K76.2 is shock liver |
+| Dementia, rheumatic disease, severe liver disease, diabetes, hemiplegia/paraplegia, malignancy, metastatic cancer, AIDS | none | all | Chronic-disease codes. Limitation stated: hemiplegia codes may come from an acute stroke in this hospitalization |
 
-- **敏感性分析**：只用既往住院诊断，并加入"是否有既往住院"指示变量（作为 LASSO 候选变量）。没有既往住院的患者，其全部共病记为 0。
-- **586/N19 的计数与敏感性分析**：
-  - 建模前先统计 CLIN 中"若计入索引住院的 586/N19 会被记为肾病、剔除后不再是肾病"的人数，只输出计数。
-  - 若该人数 ≥ CLIN 队列的 1%，视为不可忽略：增加一项敏感性分析，把索引住院的 586/N19 加回肾病定义（CCI 同步），对推荐模型重跑完整嵌套 CV，与主分析对比。
-  - 若 < 1%，只在 decisions.md 和报告中记录该计数。
-- **局限性**：DN 的纳入依据是索引住院编码，按"DN 为慢性病、入院前已存在"的假设处理；索引住院的慢性病编码同样没有时间戳。
-- **修订（2026-10-03，CLIN 尚无任何模型结果）**：原文保留。
-  - **"只用既往住院诊断 + 是否有既往住院指示变量"的敏感性分析**：只对 D8.8 在 CLIN 主分析中选出的模型和调参 RF 跑完整的 5 × 10 嵌套 CV，做法同口径 C 的共病时间敏感性分析（D8.12）。具体规则：
-    - 6 个共病、不含年龄分的 CCI 和 SAPS-II 慢性病项都只用既往住院的诊断计算；
-    - 没有既往住院的患者，全部共病记为 0；
-    - `has_prior_admission` 作为 LASSO 候选变量。
-  - **586/N19 的加回分析不做**：D8.13 的计数为 0（0%，< 1%），按上文规则只记录计数。
+- **Sensitivity analysis**: use only prior-hospitalization diagnoses, and add an indicator "has a prior hospitalization" (as a LASSO candidate). For patients with no prior hospitalization all comorbidities are set to 0.
+- **Count and sensitivity analysis for 586/N19**:
+  - Before modelling, count in CLIN the patients who "would be recorded as having renal disease if index-hospitalization 586/N19 counted, but not after removal"; only the count is output.
+  - If this number is ≥ 1% of the CLIN cohort it is considered non-negligible: add a sensitivity analysis that puts index-hospitalization 586/N19 back into the renal disease definition (CCI updated accordingly), rerun full nested CV for the recommended model and compare with the main analysis.
+  - If < 1%, only record the count in decisions.md and the report.
+- **Limitation**: DN inclusion is based on index-hospitalization codes and is handled under the assumption that "DN is a chronic disease that existed before admission"; chronic-disease codes of the index hospitalization likewise have no timestamps.
+- **Revision (2026-10-03, no CLIN model results yet)**: original text kept.
+  - **Sensitivity analysis "prior-hospitalization diagnoses only + has-prior-admission indicator"**: full 5 × 10 nested CV is run only for the model selected by D8.8 in the CLIN main analysis and the tuned RF, in the same way as the comorbidity-timing sensitivity analysis for definition C (D8.12). Specific rules:
+    - The 6 comorbidities, the CCI without age points and the SAPS-II chronic-disease items are all computed from prior-hospitalization diagnoses only;
+    - For patients with no prior hospitalization all comorbidities are set to 0;
+    - `has_prior_admission` is a LASSO candidate.
+  - **The 586/N19 add-back analysis is not done**: the D8.13 count is 0 (0%, < 1%), so under the rule above only the count is recorded.
 
-### D8.4 缺失率筛选与白细胞分类变量
+### D8.4 Missingness screening and white-cell differential variables
 
-- **20% 缺失率规则**：所有线都改为在每个外层训练折内计算（回应审阅意见 7），不再在全队列上计算。复现线的口径 A、C 按 D3.2 执行。
-- **CLIN 的白细胞分类变量**（lymphocytes、neutrophils、monocytes 及 NLR、PLR、LMR、PNR、SII）预计缺失率超过 20%（复现线 CBC 排除前约 36%）：
-  - **主分析 = 方案 2**：这些变量不受 20% 规则约束。处理方式如下：
-    - **只设 1 个指示变量** `wbc_diff_missing`（"白细胞分类未检测"），作为 LASSO 候选变量，不强制入选。不为每个变量各设一个：8 个指示变量会完全共线，无惩罚 LR 无法估计。
-    - **指示变量的定义**：建模前先用聚合计数确认这 8 个变量是否同时缺失，只输出各缺失组合的人数。`wbc_diff_missing = 1` 当且仅当三种细胞计数全部缺失（即未做白细胞分类）。若存在部分缺失（只缺其中 1–2 种细胞计数，或比值因分母为 0 而缺失，D2.10），这部分人的 `wbc_diff_missing = 0`，缺失值按下一条插补，并在报告中给出部分缺失的人数。
-    - **插补**：在训练折内用均值插补（与 D3.3 一致）。比值变量（NLR、PLR、LMR、PNR、SII）直接用各自的训练折均值插补，不用插补后的细胞计数重新计算。
-    - **理由**：模型部署时缺失的产生机制相同（是否送检白细胞分类），指示变量可以携带病情信息；保留了论文的关键变量；在嵌套 CV + LASSO 中做多重插补，折内实现复杂，最终模型也难以部署。
-  - **敏感性分析 = 方案 1**：按 20% 规则剔除这些变量。
-- CLIN 中其他变量若缺失率超过 20%，照常按规则剔除。
-- **修订（2026-10-03，CLIN 尚无任何模型结果）**：原文保留。敏感性分析方案 1（白细胞分类的 8 个变量按 20% 规则在折内剔除，不使用 `wbc_diff_missing`）只对 D8.8 在 CLIN 主分析中选出的模型和调参 RF 跑完整的 5 × 10 嵌套 CV，做法同口径 C 的共病时间敏感性分析（D8.12）。
+- **20% missingness rule**: all tracks now compute it within each outer training fold (answering review comment 7), no longer on the whole cohort. Definitions A and C of the replication track follow D3.2.
+- **White-cell differential variables in CLIN** (lymphocytes, neutrophils, monocytes and NLR, PLR, LMR, PNR, SII) are expected to have more than 20% missing (about 36% before the CBC exclusion in the replication track):
+  - **Main analysis = option 2**: these variables are not subject to the 20% rule. They are handled as follows:
+    - **Only 1 indicator variable** `wbc_diff_missing` ("white-cell differential not measured"), as a LASSO candidate, not forced in. Not one per variable: 8 indicators would be perfectly collinear and unpenalised LR could not be estimated.
+    - **Definition of the indicator**: before modelling, confirm with aggregate counts whether the 8 variables are missing together, outputting only the number of patients in each missingness pattern. `wbc_diff_missing = 1` if and only if all three cell counts are missing (i.e. no differential was done). If there is partial missingness (only 1–2 of the cell counts missing, or a ratio missing because the denominator is 0, D2.10), these patients have `wbc_diff_missing = 0`, the missing values are imputed as in the next item, and the number with partial missingness is given in the report.
+    - **Imputation**: mean imputation within the training fold (consistent with D3.3). Ratio variables (NLR, PLR, LMR, PNR, SII) are imputed directly with their own training-fold means, not recomputed from the imputed cell counts.
+    - **Rationale**: at deployment the missingness mechanism is the same (whether a differential was ordered), so the indicator can carry information about illness; the paper's key variables are kept; multiple imputation inside nested CV + LASSO is complex to implement within folds, and the final model would be hard to deploy.
+  - **Sensitivity analysis = option 1**: drop these variables under the 20% rule.
+- Other CLIN variables with more than 20% missing are dropped by the rule as usual.
+- **Revision (2026-10-03, no CLIN model results yet)**: original text kept. Sensitivity analysis option 1 (the 8 white-cell differential variables dropped within folds under the 20% rule, without `wbc_diff_missing`) runs full 5 × 10 nested CV only for the model selected by D8.8 in the CLIN main analysis and the tuned RF, in the same way as the comorbidity-timing sensitivity analysis for definition C (D8.12).
 
-### D8.5 完整嵌套 CV 的设计（三条线共用）
+### D8.5 Design of the full nested CV (shared by all three tracks)
 
-- **外层**：分层 10 折，重复 5 次。每次重复用不同种子，写入 `config/config.yaml` 的 `nested_cv.seeds: [42, 43, 44, 45, 46]`。
-- **每个外层训练折内按顺序完成全部步骤**，外层验证折只用于评估：
-  1. 20% 缺失率筛选（D8.4）；
-  2. 插补（D3.3；CLIN 另加缺失指示变量）；
-  3. 标准化；
-  4. LASSO：glmnet 风格（D4.1），内层 10 折 CV，取 λ.1se；种子取该次重复的种子；
-  5. 对每个模型：调参模型用内层分层 5 折 `GridSearchCV`（AUROC，网格与阶段 4 的 `src/models.tuning_grids` 相同；`max_features` 网格随入选变量数 p 自适应）；论文参数模型参数固定；
-  6. 在整个外层训练折上拟合，预测外层验证折。SVM 调参后重新拟合时开启 Platt 概率（同阶段 4）。
-- **修订（2026-10-02）：内层调参的种子**。原计划只规定了 LASSO 内层 CV 的种子（取该次重复的种子），没有规定调参用的内层分层 5 折 `GridSearchCV` 的种子。现补充：内层调参的 `StratifiedKFold(n_splits=5, shuffle=True)` 同样取该次重复的种子（42–46）。这是补充原计划未规定的实现细节，写入时尚未运行任何 8c 分析、未看任何结果。
-- **边界情况**：若某折 LASSO 选出 0 个变量，该折各模型一律以训练折死亡率作为预测值（只有截距），并记录发生的次数。
-- **模型**：与阶段 4 相同，共 9 个。
-  - 论文参数组：RF（字面参数）、RF（R 默认）、XGBoost、SVM、LR（无惩罚）；
-  - 调参组：RF、XGBoost、SVM、LR（L2）。
-- **样本**：
-  - 口径 C：在训练集 1,568 人内（留出验证集不参与）；
-  - 口径 A：全部 837 人；
-  - CLIN：新的 80% 训练集。
-- **运行**：本机 8 GB 内存，控制 n_jobs，按模型分批运行，每折结果缓存到 `data/interim/nested_cache/`（git 忽略），支持断点续跑。开始前先估计总运行时间，写入 progress.md。
-- **预设的降级方案**：若估计总时间超过 48 h，仅对调参 RF 和调参 XGBoost 把重复次数降为 3 次（其他模型保持 5 次），并在 progress.md 中记录。不缩小网格。
-  - 降为 3 次时，保留种子 42、43、44 对应的划分。
-  - 所有涉及 RF/XGBoost 的配对比较（含 D8.8 的等价判定）只使用共同的这 3 次划分（3 × 10 = 30 折）。Nadeau–Bengio 校正因子相应取 r = 3。
-  - 不涉及这两个模型的比较仍使用全部 5 次划分。
-  - 各模型自身的性能汇总照常使用其全部重复，并注明重复次数。
-- **输出**：`results/replication/` 和 `results/clinical/` 下的 `nested_cv_full_*.csv`。原 04d 的结果保留，标注为"仅 LASSO 嵌套"。
+- **Outer loop**: stratified 10-fold, repeated 5 times. Each repeat uses a different seed, written into `config/config.yaml` as `nested_cv.seeds: [42, 43, 44, 45, 46]`.
+- **All steps are done in order within each outer training fold**; the outer validation fold is used only for evaluation:
+  1. 20% missingness screening (D8.4);
+  2. Imputation (D3.3; CLIN additionally adds the missingness indicator);
+  3. Standardisation;
+  4. LASSO: glmnet style (D4.1), inner 10-fold CV, λ.1se; the seed is the seed of that repeat;
+  5. For each model: tuned models use inner stratified 5-fold `GridSearchCV` (AUROC, same grids as stage 4 `src/models.tuning_grids`; the `max_features` grid adapts to the number of selected variables p); paper-parameter models have fixed parameters;
+  6. Fit on the whole outer training fold and predict the outer validation fold. When SVM is refitted after tuning, Platt probabilities are enabled (as in stage 4).
+- **Revision (2026-10-02): seed of inner tuning**. The original plan specified only the seed of the LASSO inner CV (the seed of that repeat), not the seed of the inner stratified 5-fold `GridSearchCV` used for tuning. Added now: the inner tuning `StratifiedKFold(n_splits=5, shuffle=True)` also uses the seed of that repeat (42–46). This fills in an implementation detail the original plan did not specify; when written, no 8c analysis had been run and no results had been seen.
+- **Edge case**: if LASSO selects 0 variables in a fold, every model in that fold predicts the training-fold mortality (intercept only), and the number of occurrences is recorded.
+- **Models**: the same 9 as in stage 4.
+  - Paper-parameter group: RF (literal parameters), RF (R default), XGBoost, SVM, LR (unpenalised);
+  - Tuned group: RF, XGBoost, SVM, LR (L2).
+- **Samples**:
+  - Definition C: within the 1,568-patient training set (the held-out validation set does not take part);
+  - Definition A: all 837 patients;
+  - CLIN: the new 80% training set.
+- **Running**: local machine with 8 GB RAM, n_jobs controlled, run in batches by model, each fold's result cached in `data/interim/nested_cache/` (git-ignored), with resume support. Before starting, estimate the total run time and record it in progress.md.
+- **Pre-specified fallback**: if the estimated total time exceeds 48 h, reduce the number of repeats to 3 only for the tuned RF and tuned XGBoost (other models keep 5), and record this in progress.md. The grids are not reduced.
+  - When reduced to 3, keep the splits for seeds 42, 43 and 44.
+  - All paired comparisons involving RF/XGBoost (including the D8.8 equivalence judgement) use only these 3 common splits (3 × 10 = 30 folds). The Nadeau–Bengio correction factor then uses r = 3.
+  - Comparisons not involving these two models still use all 5 splits.
+  - Each model's own performance summary uses all its repeats as usual, with the number of repeats stated.
+- **Outputs**: `nested_cv_full_*.csv` under `results/replication/` and `results/clinical/`. The original 04d results are kept and labelled "LASSO-only nested".
 
-### D8.6 指标清单
+### D8.6 List of metrics
 
-- **外层各折**（5 × 10 = 50 折）分别计算以下指标，报告均值 ± SD：
-  - AUROC；
-  - AUPRC（average precision），同时给出阳性率作为基线；
-  - Brier、scaled Brier（相对于该折的阳性率）；
-  - 校准截距（calibration-in-the-large）与校准斜率。
-- **每次重复合并 OOF 预测**：计算同样的指标，再对 5 次重复取平均。另做 DCA：阈值 0.05–0.60，步长 0.01，含 treat-all / treat-none；各阈值的净获益取 5 次重复的平均。
-- **配对模型比较**：用外层逐折的配对差值，以 Nadeau–Bengio 校正的重复 CV t 统计量计算均值差的 95% CI。方差校正因子 = 1/(k·r) + n_test/n_train，其中 k = 10，r 为两个模型共同的重复次数（通常为 5；D8.5 降级时为 3）。D8.8 中的 ΔAUROC 也只在共同划分上计算。
-- **留出集**（口径 C 的次要估计；CLIN 的确认性估计）：
-  - AUROC（DeLong 95% CI）；
-  - AUPRC（分层 bootstrap 2,000 次，seed 42，95% 百分位 CI）；
-  - Brier、校准截距/斜率、DCA；
-  - 阈值指标（accuracy、precision、recall、F1、specificity）。阈值取所选模型在训练集嵌套 CV 中合并 OOF 预测的 Youden 最佳阈值，5 次重复取中位数（沿用 D4.13 的思路）。
-- **最终模型**：报告事件数、候选变量数、入选变量数，以及 EPV（事件数 / 入选变量数，另报事件数 / 候选变量数）。
+- **For each outer fold** (5 × 10 = 50 folds) the following metrics are computed and reported as mean ± SD:
+  - AUROC;
+  - AUPRC (average precision), with the positive rate given as the baseline;
+  - Brier, scaled Brier (relative to the positive rate of that fold);
+  - Calibration intercept (calibration-in-the-large) and calibration slope.
+- **Pooled OOF predictions per repeat**: the same metrics are computed and then averaged over the 5 repeats. DCA is also done: thresholds 0.05–0.60 in steps of 0.01, with treat-all / treat-none; the net benefit at each threshold is the average over the 5 repeats.
+- **Paired model comparisons**: using the paired per-fold differences in the outer loop, the 95% CI of the mean difference is computed with the Nadeau–Bengio corrected repeated-CV t statistic. Variance correction factor = 1/(k·r) + n_test/n_train, where k = 10 and r is the number of repeats common to the two models (usually 5; 3 under the D8.5 fallback). ΔAUROC in D8.8 is also computed only on the common splits.
+- **Held-out set** (secondary estimate for definition C; confirmatory estimate for CLIN):
+  - AUROC (DeLong 95% CI);
+  - AUPRC (stratified bootstrap with 2,000 replicates, seed 42, 95% percentile CI);
+  - Brier, calibration intercept/slope, DCA;
+  - Threshold metrics (accuracy, precision, recall, F1, specificity). The threshold is the Youden optimal threshold of the selected model's pooled OOF predictions in the training-set nested CV, taking the median over the 5 repeats (following the idea of D4.13).
+- **Final model**: report the number of events, the number of candidate variables, the number of selected variables, and EPV (events / selected variables, and also events / candidate variables).
 
-### D8.7 每条线的主要性能估计
+### D8.7 Main performance estimate for each track
 
-| 线 | 主要估计 | 次要估计 |
+| Track | Main estimate | Secondary estimate |
 |---|---|---|
-| 口径 C | 训练集 1,568 人内的完整嵌套 CV | 留出验证集的单次估计（+ AUPRC 及 bootstrap CI）。注明：该验证集已参与阶段 4–7 的事后模型选择 |
-| 口径 A | 全部 837 人的完整嵌套 CV（不划留出集：80/20 后验证集只有约 38 例死亡，AUROC 的 95% CI 约 ±0.09） | 无。SHAP、系数在全队列上拟合的最终模型中计算；最终模型按 D8.5 的同一流程拟合（LASSO + 内层 5 折调参） |
-| CLIN | 模型冻结后，留出集只评估一次（确认性估计） | 训练集完整嵌套 CV（同时用于模型选择） |
+| Definition C | full nested CV within the 1,568-patient training set | single estimate on the held-out validation set (+ AUPRC and bootstrap CI). Stated: this validation set already took part in the post-hoc model selection of stages 4–7 |
+| Definition A | full nested CV on all 837 patients (no held-out set: after 80/20 the validation set would have only about 38 deaths, giving an AUROC 95% CI of about ±0.09) | none. SHAP and coefficients are computed in the final model fitted on the whole cohort; the final model is fitted with the same procedure as D8.5 (LASSO + inner 5-fold tuning) |
+| CLIN | after the model is frozen, the held-out set is evaluated only once (confirmatory estimate) | full nested CV on the training set (also used for model selection) |
 
-**口径 A 与 C 的一致性判定**（预设）：同时满足以下三条记为"一致"，满足其中两条记为"部分一致"，否则记为"不一致"。
-1. 两个口径按 D8.8 选出的模型，嵌套 CV AUROC 相差 ≤ 0.05；
-2. 两个口径选出的是同一模型，或彼此处于 D8.8 定义的等价范围内；
-3. RDW 和 CCI 都在两个口径所选模型的 SHAP 前 5 内。
+**Consistency judgement between definitions A and C** (pre-specified): meeting all three conditions below counts as "consistent", two of them as "partly consistent", otherwise "inconsistent".
+1. The nested-CV AUROCs of the models selected by D8.8 under the two definitions differ by ≤ 0.05;
+2. The two definitions select the same model, or models within each other's equivalence range as defined in D8.8;
+3. RDW and CCI are both in the SHAP top 5 of the model selected under each definition.
 
-第 2.2 节中"口径选择不改变结论"的表述删除，改为以上述判定为依据。
+The statement "the choice of definition does not change the conclusions" in Section 2.2 is removed and replaced by the judgement above.
 
-- **修订（2026-10-03）：取消 A/C 一致性判定**。原文保留。
-  - **决定**：口径 A 不再建模（见 D8.1 修订），上表口径 A 一行和上述一致性判定都不再执行。
-  - **理由**：同 D8.1 修订，即口径 A 的选择偏倚（D1.2）、样本量小（837 / 189）缺乏比较效力，以及审阅意见第 3 条可通过如实命名口径 C 来回应。该决定在口径 A 没有任何模型结果时做出。
-  - **第 2.2 节**：上一句"改为以上述判定为依据"不再适用。"口径选择不改变结论"仍然删除，该节改为只陈述四种口径的人数与死亡率，不对口径之间的模型结论作比较。
+- **Revision (2026-10-03): A/C consistency judgement cancelled**. Original text kept.
+  - **Decision**: definition A is no longer modelled (see the D8.1 revision), so the definition A row of the table above and the consistency judgement above are no longer carried out.
+  - **Rationale**: as in the D8.1 revision, i.e. the selection bias of definition A (D1.2), the small sample (837 / 189) lacking power for comparisons, and review comment 3 can be answered by naming definition C honestly. The decision was made when there were no model results for definition A.
+  - **Section 2.2**: the previous sentence "replaced by the judgement above" no longer applies. "The choice of definition does not change the conclusions" is still removed; the section now only states the counts and mortality of the four definitions and does not compare model conclusions between definitions.
 
-### D8.8 模型选择规则（在看到任何新结果之前写定，三条线分别执行）
+### D8.8 Model selection rule (written before any new results were seen; applied separately to each track)
 
-1. **主要依据**：完整嵌套 CV 的外层 AUROC 均值（50 折）。记最高者为 M\*。
-2. **等价集**：对每个候选模型 m，计算 ΔAUROC = AUROC(M\*) − AUROC(m) 及其 Nadeau–Bengio 校正的 95% CI（D8.6）。满足以下任一条件，则 m 与 M\* 等价：
-   - ΔAUROC ≤ 0.01；
-   - Nadeau–Bengio 校正 95% CI 跨 0，且 ΔAUROC ≤ 0.02。
+1. **Main criterion**: mean outer AUROC of the full nested CV (50 folds). The highest is called M\*.
+2. **Equivalence set**: for each candidate model m, compute ΔAUROC = AUROC(M\*) − AUROC(m) and its Nadeau–Bengio corrected 95% CI (D8.6). m is equivalent to M\* if either condition holds:
+   - ΔAUROC ≤ 0.01;
+   - The Nadeau–Bengio corrected 95% CI crosses 0 and ΔAUROC ≤ 0.02.
 
-   M\* 本身属于等价集。差值超过 0.02 的模型，即使 CI 跨 0 也不算等价。
-3. **简约优先**：若等价集中有 LR（无惩罚或 L2），选 LR；否则选 M\*。
-4. **LR 之间的取舍**：若两种 LR 都在等价集内，选嵌套 CV 合并 OOF 校准斜率更接近 1 的一个（|ln 斜率| 更小，取 5 次重复的平均）；相同时选无惩罚 LR。校准只作为 LR 之间的辅助依据，不用于在 LR 与其他模型之间取舍。
-5. **留出集不参与选择**。按本规则选出的模型即为该线的推荐模型，**结果具有约束力**：
-   - 若口径 C 按本规则选出的不是无惩罚 LR，报告的推荐模型随之改变，并说明与阶段 6–7 事后选择的差异。
-   - 口径 C 的预设主分析模型（D4.7：调参 RF）照常报告。
-6. **推荐理由的写法**：只写简约、校准（以嵌套 CV OOF 校准斜率为证据）和可解释性，不声称推荐模型的区分度更好。若嵌套 CV 中所选 LR 的 AUROC 低于其他模型，如实写出。
-7. **报告中必须写明**：第 2、3 步是**预设的简约性偏好**。它允许所选 LR 的 AUROC 比最佳模型最多低 0.02（CI 跨 0 时）或 0.01（无论 CI）。
+   M\* itself belongs to the equivalence set. A model with a difference above 0.02 is not equivalent even if the CI crosses 0.
+3. **Parsimony first**: if the equivalence set contains an LR (unpenalised or L2), choose LR; otherwise choose M\*.
+4. **Choosing between LRs**: if both LRs are in the equivalence set, choose the one whose pooled OOF calibration slope in nested CV is closer to 1 (smaller |ln slope|, averaged over the 5 repeats); if tied, choose unpenalised LR. Calibration is only an auxiliary criterion between LRs and is not used to choose between LR and other models.
+5. **The held-out set does not take part in selection**. The model chosen by this rule is the recommended model of the track, and **the result is binding**:
+   - If the rule does not select unpenalised LR for definition C, the recommended model in the report changes accordingly, and the difference from the post-hoc choice of stages 6–7 is explained.
+   - The pre-specified main-analysis model for definition C (D4.7: tuned RF) is reported as usual.
+6. **How the recommendation is justified**: write only about parsimony, calibration (with the nested-CV OOF calibration slope as evidence) and interpretability; do not claim that the recommended model discriminates better. If the selected LR has a lower AUROC than other models in nested CV, say so.
+7. **The report must state**: steps 2 and 3 are a **pre-specified preference for parsimony**. It allows the selected LR to have an AUROC up to 0.02 lower than the best model (when the CI crosses 0) or 0.01 lower (regardless of the CI).
 
-### D8.9 其他预设
+### D8.9 Other pre-specifications
 
-- **种子**：外层 `nested_cv.seeds` 写入 config；CLIN 的 80/20 划分与 bootstrap 用 seed 42。
-- **实现**：现有脚本接受 `--track {replication,clinical}` 和 `--cohort {A,C}` 参数，输出分别写到 `results/replication/` 和 `results/clinical/`，不复制整套脚本。
-- **报告结构**（8f）：
-  1. 论文复现：口径 A 与 C 并列；
-  2. 临床改良模型（CLIN）；
-  3. 与论文的比较、局限性、后续工作。
-- **后续工作**：
-  - 删除 eICU-CRD 外部验证（eICU 只有院内结局，无法验证一年死亡），改为按 anchor_year_group 做时间外推验证，以及寻找有一年随访的外部数据；
-  - "重复嵌套 CV"已在本阶段完成，从后续工作中移除。
-- **数据合规**：所有核查（8b 的结局核查、白细胞分类缺失一致性、`diabetes_with_cc` 比例等）只输出计数与汇总统计；n < 10 的格子不展示个体可识别的值。
+- **Seeds**: the outer `nested_cv.seeds` are written into config; the CLIN 80/20 split and bootstrap use seed 42.
+- **Implementation**: the existing scripts take `--track {replication,clinical}` and `--cohort {A,C}` arguments and write their outputs to `results/replication/` and `results/clinical/` respectively, without copying the whole set of scripts.
+- **Report structure** (8f):
+  1. Replication of the paper: definitions A and C side by side;
+  2. Clinically improved model (CLIN);
+  3. Comparison with the paper, limitations, future work.
+- **Future work**:
+  - Drop external validation in eICU-CRD (eICU has only in-hospital outcomes and cannot validate one-year mortality), replacing it with temporal validation by anchor_year_group and a search for external data with one-year follow-up;
+  - "Repeated nested CV" was completed in this stage and is removed from future work.
+- **Data compliance**: all checks (8b outcome check, consistency of white-cell differential missingness, the `diabetes_with_cc` proportion, etc.) output only counts and summary statistics; cells with n < 10 do not show individually identifiable values.
 
-### D8.10 8b 结果：一年死亡结局核查（2026-10-01，已运行）
+### D8.10 8b results: one-year mortality outcome check (2026-10-01, run)
 
-**新定义**：死亡日期 ∈ [date(intime), date(intime) + 365 天]，在日期粒度比较。死亡日期取索引住院的 `admissions.deathtime`（院内死亡）；否则取 `patients.dod`。若 `hospital_expire_flag = 1` 但 `deathtime` 为空，同样用 `dod`。
+**New definition**: date of death ∈ [date(intime), date(intime) + 365 days], compared at date granularity. The date of death is the index hospitalization's `admissions.deathtime` (in-hospital death); otherwise `patients.dod`. If `hospital_expire_flag = 1` but `deathtime` is null, `dod` is likewise used.
 
-**聚合核查**（`scripts/01b_outcome_check.py` → `results/tables/outcome_check.csv`，只输出计数；最终队列，口径 A / B / C / D）：
+**Aggregate checks** (`scripts/01b_outcome_check.py` → `results/tables/outcome_check.csv`, counts only; final cohorts, definitions A / B / C / D):
 
-| 核查项 | A | B | C | D |
+| Check | A | B | C | D |
 |---|---|---|---|---|
-| 人数 | 837 | 1,228 | 1,960 | 1,685 |
-| 死亡数：旧定义 / 新定义 | 189 / 189 | 283 / 283 | 494 / 494 | 400 / 400 |
-| dod 早于入科日期 | 0 | 0 | 0 | 0 |
-| deathtime 早于入科日期 | 0 | 0 | 0 | 0 |
-| 院内死亡发生在入科 365 天之后 | 0 | 0 | 0 | 0 |
-| hospital_expire_flag = 1 但 dod 为空 | 0 | 0 | 0 | 0 |
-| hospital_expire_flag = 1 但 deathtime 为空 | 0 | 0 | 1 | 1 |
-| 有 deathtime 但 hospital_expire_flag = 0 | 0 | 0 | 0 | 0 |
-| dod 与 deathtime 日期不一致 | 0 | 0 | 0 | 0 |
-| 新旧定义不一致（旧 1 新 0 / 旧 0 新 1） | 0 / 0 | 0 / 0 | 0 / 0 | 0 / 0 |
+| Patients | 837 | 1,228 | 1,960 | 1,685 |
+| Deaths: old definition / new definition | 189 / 189 | 283 / 283 | 494 / 494 | 400 / 400 |
+| dod before the ICU admission date | 0 | 0 | 0 | 0 |
+| deathtime before the ICU admission date | 0 | 0 | 0 | 0 |
+| In-hospital death more than 365 days after ICU admission | 0 | 0 | 0 | 0 |
+| hospital_expire_flag = 1 but dod null | 0 | 0 | 0 | 0 |
+| hospital_expire_flag = 1 but deathtime null | 0 | 0 | 1 | 1 |
+| deathtime present but hospital_expire_flag = 0 | 0 | 0 | 0 | 0 |
+| dod and deathtime dates disagree | 0 | 0 | 0 | 0 |
+| Old and new definitions disagree (old 1 new 0 / old 0 new 1) | 0 / 0 | 0 / 0 | 0 / 0 | 0 / 0 |
 
-- **结论**：在所有口径中，新旧定义不一致的人数均为 0，**不重跑**。旧定义缺少的下界和院内死亡的上界，在本数据中没有造成任何错分。
-- **后续统一使用新定义**：三条线（D8.1）都用新定义，作为预防性的修正。8e 的 CLIN 纳入条件会引入入科后 24 h 内死亡的判定，新定义的日期粒度规则同样适用。
-- 有 1 例（口径 C/D 中同一患者）`hospital_expire_flag = 1` 但 `deathtime` 为空，按规则改用 `dod`，在两个定义下都记为死亡。
+- **Conclusion**: under every definition the number of disagreements between the old and new definitions is 0, so **nothing is rerun**. The lower bound missing from the old definition and the upper bound on in-hospital deaths caused no misclassification in these data.
+- **The new definition is used from now on**: all three tracks (D8.1) use the new definition, as a preventive correction. The CLIN inclusion criteria of 8e introduce a check for death within 24 h after ICU admission, to which the date-granularity rule of the new definition also applies.
+- One patient (the same patient in definitions C/D) has `hospital_expire_flag = 1` but a null `deathtime`; by the rule `dod` is used instead, and the patient counts as a death under both definitions.
 
-**随访完整性**（已对照 PhysioNet MIMIC-IV v3.1 文档核实，https://physionet.org/content/mimiciv/3.1/）：
-- 文档原文："Date of death is derived from hospital records and state records. If both exist, hospital records take precedence."
-- 文档原文："Dates of death occurring more than one year after hospital discharge are censored as a part of the deidentification process. As a result, the maximum time of follow up for each patient is exactly one year after their last hospital discharge."
-- 文档还说明：州与医院的死亡记录是在 MIMIC-IV 末位患者出院两年后收集的；v2.0 起 `dod` 纳入了院外死亡。
-- **推论**：`dod` 在患者末次出院后一年截尾。末次出院不早于索引住院的出院，而索引住院的出院晚于索引 ICU 入科，所以每位患者的随访都至少覆盖到入科后 365 天。入科后 365 天内的死亡在数据上可以完整观察，不存在因随访不足导致的右删失。
-- **局限**：州登记依靠姓名、出生日期、社会安全号的规则匹配，外州死亡或匹配失败会造成漏记。这是结局测量误差，不是随访时长问题。
-- **报告修改**：第 12.5 节"只覆盖出院后 1 年"改为"覆盖至末次出院后 1 年"，并补充上述推论与局限。
+**Completeness of follow-up** (verified against the PhysioNet MIMIC-IV v3.1 documentation, https://physionet.org/content/mimiciv/3.1/):
+- Documentation text: "Date of death is derived from hospital records and state records. If both exist, hospital records take precedence."
+- Documentation text: "Dates of death occurring more than one year after hospital discharge are censored as a part of the deidentification process. As a result, the maximum time of follow up for each patient is exactly one year after their last hospital discharge."
+- The documentation also states that state and hospital death records were collected two years after the last patient in MIMIC-IV was discharged, and that from v2.0 `dod` includes out-of-hospital deaths.
+- **Inference**: `dod` is censored one year after the patient's last discharge. The last discharge is no earlier than the discharge of the index hospitalization, which is later than the index ICU admission, so every patient's follow-up covers at least 365 days after ICU admission. Deaths within 365 days of ICU admission are fully observable in the data, and there is no right-censoring due to insufficient follow-up.
+- **Limitation**: state registry linkage relies on rule-based matching of name, date of birth and social security number, so deaths in other states or failed matches are missed. This is outcome measurement error, not a follow-up length problem.
+- **Report change**: in Section 12.5, "covers only 1 year after discharge" becomes "covers up to 1 year after the last discharge", and the inference and limitation above are added.
 
-### D8.11 8c 结果：口径 C 完整嵌套 CV 与按 D8.8 的模型选择（2026-10-03，已运行）
+### D8.11 8c results: full nested CV for definition C and model selection by D8.8 (2026-10-03, run)
 
-**运行**：`scripts/04f_nested_full.py --track replication --cohort C`，训练集 1,568 人（留出验证集未读入），外层 10 折 × 5 次重复（种子 42–46），9 个模型均跑满 5 次重复（未触发 D8.5 降级），配对比较 r = 5、k = 10。输出 `results/replication/nested_cv_full_{summary,folds,pairwise,dca,oof_threshold,params,selection}_C.csv`。
-- 50 个外层折中 LASSO 入选变量数 8–16（中位数 12）；无 0 变量折（`n_constant_folds = 0`）；20% 缺失率筛选在各折均未剔除变量。各折都入选的变量：age、rdw_mean、cci、apsiii、sapsii；≥ 40/50 折：chloride_max、sii、pt_min、aniongap_min、oasis。
+**Run**: `scripts/04f_nested_full.py --track replication --cohort C`, training set of 1,568 patients (the held-out validation set was not read), outer 10 folds × 5 repeats (seeds 42–46), all 9 models ran the full 5 repeats (the D8.5 fallback was not triggered), paired comparisons with r = 5, k = 10. Outputs `results/replication/nested_cv_full_{summary,folds,pairwise,dca,oof_threshold,params,selection}_C.csv`.
+- Across the 50 outer folds LASSO selected 8–16 variables (median 12); no zero-variable fold (`n_constant_folds = 0`); the 20% missingness screening dropped no variable in any fold. Variables selected in every fold: age, rdw_mean, cci, apsiii, sapsii; in ≥ 40/50 folds: chloride_max, sii, pt_min, aniongap_min, oasis.
 
-**外层 AUROC（50 折均值 ± SD）与 OOF 校准斜率（每次重复合并 OOF，5 次重复的均值）**：
+**Outer AUROC (mean ± SD over 50 folds) and OOF calibration slope (pooled OOF per repeat, mean over 5 repeats)**:
 
-| 模型 | AUROC（折均值 ± SD） | 合并 OOF AUROC | ΔAUROC vs M\*（NB 校正 95% CI） | 等价 | OOF 校准斜率 |
+| Model | AUROC (fold mean ± SD) | Pooled OOF AUROC | ΔAUROC vs M\* (NB-corrected 95% CI) | Equivalent | OOF calibration slope |
 |---|---|---|---|---|---|
-| XGBoost（论文参数）= **M\*** | 0.7907 ± 0.0348 | 0.7897 | — | 是（M\*） | 0.957 |
-| XGBoost（调参） | 0.7904 ± 0.0350 | 0.7899 | 0.0003（−0.0050, 0.0056） | 是 | 0.960 |
-| LR（L2） | 0.7883 ± 0.0356 | 0.7817 | 0.0024（−0.0088, 0.0136） | 是 | 1.189 |
-| RF（调参） | 0.7882 ± 0.0362 | 0.7855 | 0.0024（−0.0061, 0.0110） | 是 | 1.483 |
-| SVM（调参） | 0.7877 ± 0.0356 | 0.7853 | 0.0029（−0.0078, 0.0137） | 是 | 0.900 |
-| LR（无惩罚） | 0.7859 ± 0.0355 | 0.7849 | 0.0048（−0.0067, 0.0163） | 是 | 0.854 |
-| RF（论文字面参数） | 0.7669 ± 0.0378 | 0.7668 | 0.0237（0.0062, 0.0412） | 否 | 0.939 |
-| RF（R 默认） | 0.7243 ± 0.0385 | 0.7245 | 0.0664（0.0428, 0.0899） | 否 | 0.154 |
-| SVM（论文参数） | 0.7230 ± 0.0443 | 0.7207 | 0.0676（0.0421, 0.0932） | 否 | 0.961 |
+| XGBoost (paper parameters) = **M\*** | 0.7907 ± 0.0348 | 0.7897 | — | yes (M\*) | 0.957 |
+| XGBoost (tuned) | 0.7904 ± 0.0350 | 0.7899 | 0.0003 (−0.0050, 0.0056) | yes | 0.960 |
+| LR (L2) | 0.7883 ± 0.0356 | 0.7817 | 0.0024 (−0.0088, 0.0136) | yes | 1.189 |
+| RF (tuned) | 0.7882 ± 0.0362 | 0.7855 | 0.0024 (−0.0061, 0.0110) | yes | 1.483 |
+| SVM (tuned) | 0.7877 ± 0.0356 | 0.7853 | 0.0029 (−0.0078, 0.0137) | yes | 0.900 |
+| LR (unpenalised) | 0.7859 ± 0.0355 | 0.7849 | 0.0048 (−0.0067, 0.0163) | yes | 0.854 |
+| RF (paper literal parameters) | 0.7669 ± 0.0378 | 0.7668 | 0.0237 (0.0062, 0.0412) | no | 0.939 |
+| RF (R default) | 0.7243 ± 0.0385 | 0.7245 | 0.0664 (0.0428, 0.0899) | no | 0.154 |
+| SVM (paper parameters) | 0.7230 ± 0.0443 | 0.7207 | 0.0676 (0.0421, 0.0932) | no | 0.961 |
 
-**按 D8.8 执行**：
-1. M\* = XGBoost（论文参数），外层 AUROC 0.7907。与调参 XGBoost 只差 0.0003，M\* 的身份不影响后续步骤（两者的等价集相同）。
-2. 等价集 = {XGBoost 论文参数, XGBoost 调参, LR L2, RF 调参, SVM 调参, LR 无惩罚}：这 5 个候选的 ΔAUROC 均 ≤ 0.01（最大 0.0048），按第一条即等价。RF（论文字面参数）Δ = 0.024 > 0.02 且 CI 不跨 0；RF（R 默认）与 SVM（论文参数）Δ > 0.06，均不等价。
-3. 等价集中有 LR → 选 LR。
-4. 两种 LR 都在等价集内 → 比较合并 OOF 校准斜率的 |ln 斜率|（5 次重复的平均）：无惩罚 LR **0.158**，L2 LR **0.170** → **无惩罚 LR**。
-   - **计算口径（2026-10-03 精确重算）**：对每次重复（种子 42–46），把 10 个外层验证折的预测合并为覆盖全部 1,568 人的 OOF 预测，在合并 OOF 上做 logistic 重校准（logit(y) ~ a + b·logit(p)，p 截断到 [1e-6, 1 − 1e-6]）得到该次重复的斜率 b_r，再取 (1/5)·Σ|ln b_r|。即先对每次重复取 |ln|、再平均；不是对 5 个斜率的均值取 |ln|。数据来自 `data/interim/nested_cache/` 中缓存的各折预测，未重新拟合任何模型。每次重复的斜率与 |ln 斜率| 存于 `nested_cv_full_summary_C.csv` 的 `cal_slope_pooled_rep{42..46}`、`abs_ln_cal_slope_pooled_rep{42..46}`、`abs_ln_cal_slope_pooled_mean_over_repeats` 列。
-   - 每次重复的斜率（|ln 斜率|）：
+**Applying D8.8**:
+1. M\* = XGBoost (paper parameters), outer AUROC 0.7907. It differs from the tuned XGBoost by only 0.0003, and which one is M\* does not affect the later steps (the two have the same equivalence set).
+2. Equivalence set = {XGBoost paper parameters, XGBoost tuned, LR L2, RF tuned, SVM tuned, LR unpenalised}: these 5 candidates all have ΔAUROC ≤ 0.01 (maximum 0.0048) and are equivalent by the first condition. RF (paper literal parameters) has Δ = 0.024 > 0.02 with a CI not crossing 0; RF (R default) and SVM (paper parameters) have Δ > 0.06; none is equivalent.
+3. The equivalence set contains LR → choose LR.
+4. Both LRs are in the equivalence set → compare |ln slope| of the pooled OOF calibration slope (mean over 5 repeats): unpenalised LR **0.158**, L2 LR **0.170** → **unpenalised LR**.
+   - **Computation (exact recomputation on 2026-10-03)**: for each repeat (seeds 42–46), the predictions of the 10 outer validation folds are pooled into OOF predictions covering all 1,568 patients, logistic recalibration (logit(y) ~ a + b·logit(p), p clipped to [1e-6, 1 − 1e-6]) on the pooled OOF gives that repeat's slope b_r, and then (1/5)·Σ|ln b_r| is taken. That is, |ln| is taken per repeat and then averaged, not |ln| of the mean of the 5 slopes. The data are the per-fold predictions cached in `data/interim/nested_cache/`; no model was refitted. The slope and |ln slope| of each repeat are stored in the columns `cal_slope_pooled_rep{42..46}`, `abs_ln_cal_slope_pooled_rep{42..46}` and `abs_ln_cal_slope_pooled_mean_over_repeats` of `nested_cv_full_summary_C.csv`.
+   - Slope of each repeat (|ln slope|):
 
-     | 种子 | 42 | 43 | 44 | 45 | 46 | 平均 |
+     | Seed | 42 | 43 | 44 | 45 | 46 | Mean |
      |---|---|---|---|---|---|---|
-     | 无惩罚 LR | 0.830（0.186） | 0.859（0.153） | 0.866（0.144） | 0.866（0.143） | 0.848（0.166） | 0.158 |
-     | L2 LR | 1.107（0.101） | 1.179（0.165） | 1.369（0.314） | 1.146（0.137） | 1.145（0.136） | 0.170 |
+     | Unpenalised LR | 0.830 (0.186) | 0.859 (0.153) | 0.866 (0.144) | 0.866 (0.143) | 0.848 (0.166) | 0.158 |
+     | L2 LR | 1.107 (0.101) | 1.179 (0.165) | 1.369 (0.314) | 1.146 (0.137) | 1.145 (0.136) | 0.170 |
 
-   - 与初判（对斜率均值取 |ln|：0.158 对 0.173）结论相同，无需修改选择。但差距很小（0.012），而且逐次重复看，L2 LR 在 3/5 次重复（42、45、46）中更接近 1，平均值主要由种子 44（L2 斜率 1.369）拉开。因此这一步只是按规则机械地分出先后，不构成"无惩罚 LR 校准更好"的证据。
-5. **口径 C 的推荐模型 = 无惩罚 LR**，与阶段 6–7 的事后选择一致，报告的推荐模型不变。预设主分析模型（D4.7：调参 RF）照常报告：外层 AUROC 0.788，与 M\* 等价，但 OOF 校准斜率 1.48（预测过于保守/向均值收缩）。
+   - The conclusion is the same as the initial judgement (|ln| of the mean slope: 0.158 vs 0.173), so the selection does not change. But the gap is small (0.012), and repeat by repeat L2 LR is closer to 1 in 3/5 repeats (42, 45, 46); the mean is pulled apart mainly by seed 44 (L2 slope 1.369). This step therefore only orders the two mechanically by the rule and is not evidence that "unpenalised LR is better calibrated".
+5. **Recommended model for definition C = unpenalised LR**, consistent with the post-hoc choice of stages 6–7, so the recommended model in the report does not change. The pre-specified main-analysis model (D4.7: tuned RF) is reported as usual: outer AUROC 0.788, equivalent to M\*, but OOF calibration slope 1.48 (predictions too conservative / shrunk toward the mean).
 
-**推荐理由（按 D8.8 第 6、7 条的写法）**：完整嵌套 CV 下无惩罚 LR 的 OOF 校准斜率为 0.854，L2 LR 为 1.189，两者偏离 1 的程度相近、方向相反（前者预测略偏极端，后者略偏向均值）。推荐理由以简约（≈12 个 LASSO 入选变量的无惩罚 logistic 模型）和可解释性（系数/OR 直接可读、无需选择惩罚强度）为主；校准方面只写"两种 LR 相当"，不写无惩罚 LR 校准更优。**不声称区分度更好**：无惩罚 LR 的外层 AUROC（0.786）在 6 个等价模型中最低，比 M\* 低 0.005（95% CI −0.007 至 0.016）。报告须写明：第 2、3 步是预设的简约性偏好，允许所选 LR 的 AUROC 比最佳模型最多低 0.02（CI 跨 0 时）或 0.01（无论 CI）；本次实际差值 0.005。
+**Justification of the recommendation (worded as in D8.8 items 6 and 7)**: under full nested CV the OOF calibration slope is 0.854 for unpenalised LR and 1.189 for L2 LR; the two deviate from 1 by similar amounts in opposite directions (the former slightly too extreme, the latter slightly toward the mean). The recommendation rests mainly on parsimony (an unpenalised logistic model with ≈12 LASSO-selected variables) and interpretability (coefficients/ORs directly readable, no penalty strength to choose); on calibration the report says only that "the two LRs are similar", not that unpenalised LR is better calibrated. **No claim of better discrimination**: the outer AUROC of unpenalised LR (0.786) is the lowest of the 6 equivalent models, 0.005 below M\* (95% CI −0.007 to 0.016). The report must state that steps 2 and 3 are a pre-specified preference for parsimony, allowing the selected LR to have an AUROC up to 0.02 lower than the best model (when the CI crosses 0) or 0.01 lower (regardless of the CI); the actual difference here is 0.005.
 
-**其他观察（不影响选择）**：
-- 与 04d（"仅 LASSO 嵌套"）相比，完整嵌套后无惩罚 LR 0.781 → 0.786，调参模型 0.783–0.789 → 0.788–0.790，结论方向不变：调参模型与 LR 之间的差距在 0.005 以内。
-- LR（L2）的折均值 AUROC（0.788）高于合并 OOF AUROC（0.782）：内层选出的 C 很小（0.01：39 折；0.001：11 折），强收缩使各折预测尺度不同，合并后排序受损。其折均值校准斜率 1.53 ± 0.85 也不稳定。
-- RF（R 默认）的折级校准截距均值曾为数值发散值（−1.6e14）：该模型训练集上过拟合，部分折预测接近 0/1，logistic 重校准不收敛。
-  - **处理（2026-10-03）**：04f 改用 `src/metrics.cal_intercept_slope_checked`，GLM 拟合抛错、未收敛、出现完全分离/收敛警告或 |值| > 1e3 时记为 NaN。summary 新增 `n_nonconv_cal_intercept_folds`、`n_nonconv_cal_slope_folds`、`n_nonconv_cal_pooled_repeats`；folds 表新增 `cal_intercept_ok`、`cal_slope_ok`。
-  - 结果：只有 RF（R 默认）有 5 个外层折的校准截距不收敛（斜率均收敛）；其余 8 个模型、全部合并 OOF 拟合均收敛，数值与此前逐位相同。
-  - RF（R 默认）的校准只报告合并 OOF 值（截距 −0.028，斜率 0.154），summary 中其折级校准均值/SD 置为 NaN（`cal_fold_level_reported = False`）。
-  - 旧的 `cal_intercept_slope` 不变，04b/04c/04e 的结果不受影响。
-- 外层校正 t 检验显示 RF（论文字面参数）显著差于 M\*（Δ 0.024），RF（R 默认）和 SVM（论文参数）差约 0.066——论文参数中只有 XGBoost 在完整嵌套下与最佳模型持平。
-- 待办：口径 A 跑完后按 D8.7 做 A/C 一致性判定；留出验证集的次要估计（D8.6）用无惩罚 LR 与 Youden 阈值 0.229（合并 OOF，5 次重复中位数，范围 0.220–0.312）。
+**Other observations (do not affect the selection)**:
+- Compared with 04d ("LASSO-only nested"), after full nesting unpenalised LR goes 0.781 → 0.786 and the tuned models 0.783–0.789 → 0.788–0.790; the direction of the conclusion is unchanged: the gap between the tuned models and LR is within 0.005.
+- The fold-mean AUROC of LR (L2) (0.788) is higher than its pooled OOF AUROC (0.782): the C chosen in the inner loop is very small (0.01: 39 folds; 0.001: 11 folds), and the strong shrinkage puts each fold's predictions on a different scale, which damages the ranking after pooling. Its fold-mean calibration slope of 1.53 ± 0.85 is also unstable.
+- The mean fold-level calibration intercept of RF (R default) was once a numerically divergent value (−1.6e14): the model overfits the training set, some folds' predictions are close to 0/1, and the logistic recalibration does not converge.
+  - **Handling (2026-10-03)**: 04f now uses `src/metrics.cal_intercept_slope_checked`, which records NaN when the GLM fit raises an error, does not converge, shows complete separation/convergence warnings, or gives |value| > 1e3. The summary gets new columns `n_nonconv_cal_intercept_folds`, `n_nonconv_cal_slope_folds`, `n_nonconv_cal_pooled_repeats`; the folds table gets `cal_intercept_ok`, `cal_slope_ok`.
+  - Result: only RF (R default) has 5 outer folds whose calibration intercept does not converge (all slopes converge); the other 8 models and all pooled OOF fits converge, with values identical digit for digit to before.
+  - For RF (R default) only the pooled OOF calibration is reported (intercept −0.028, slope 0.154), and its fold-level calibration mean/SD in the summary are set to NaN (`cal_fold_level_reported = False`).
+  - The old `cal_intercept_slope` is unchanged, so the results of 04b/04c/04e are unaffected.
+- The outer corrected t-test shows that RF (paper literal parameters) is significantly worse than M\* (Δ 0.024), and RF (R default) and SVM (paper parameters) are about 0.066 worse: among the paper parameters only XGBoost matches the best model under full nesting.
+- To do: after definition A has run, make the A/C consistency judgement per D8.7; the secondary estimate on the held-out validation set (D8.6) uses unpenalised LR with Youden threshold 0.229 (pooled OOF, median over 5 repeats, range 0.220–0.312).
 
-### D8.12 8d 结果：口径 C 留出集次要估计与共病时间敏感性分析（2026-10-03）
+### D8.12 8d results: secondary held-out estimate for definition C and comorbidity-timing sensitivity analysis (2026-10-03)
 
-#### 第 1 步：留出验证集的次要估计（D8.6、D8.7，已运行）
+#### Step 1: secondary estimate on the held-out validation set (D8.6, D8.7, run)
 
-**注意**：该验证集（392 人，99 例死亡）参与过阶段 6–7 的事后模型选择（D4.15），因此这里只是**次要估计**。口径 C 的主要估计是 D8.11 的完整嵌套 CV。
+**Note**: this validation set (392 patients, 99 deaths) took part in the post-hoc model selection of stages 6–7 (D4.15), so this is only a **secondary estimate**. The main estimate for definition C is the full nested CV of D8.11.
 
-- **脚本**：`scripts/04g_holdout_C.py`，输出 `results/replication/holdout_C.csv`、`holdout_dca_C.csv`。
-- **模型**：两个模型均用阶段 4 在完整训练集（1,568 人）上拟合的版本，即无泄露预处理 + LASSO λ.1se 选出的 12 个变量。重建后与阶段 4 保存的验证集预测逐一比对，差异 < 1e-6。
-  - 推荐模型：无惩罚 LR（D8.11）。
-  - 预设主分析模型：调参 RF（D4.7），参数 max_depth 4、max_features 1、min_samples_leaf 10。脚本按 D4.7 的规则重新判定（10 折 CV AUC 最高），断言选出的就是 RF。
-- **阈值**：两个模型各自取嵌套 CV 合并 OOF 的 Youden 阈值（5 次重复的中位数）：LR 0.229，RF 0.247。
-- **AUPRC 的 CI**：分层 bootstrap，死亡与存活分别有放回重抽样、两组人数固定，2,000 次，seed 42，取 95% 百分位区间。
+- **Script**: `scripts/04g_holdout_C.py`, outputs `results/replication/holdout_C.csv`, `holdout_dca_C.csv`.
+- **Models**: both models are the versions fitted in stage 4 on the full training set (1,568 patients), i.e. leakage-free preprocessing + the 12 variables selected by LASSO λ.1se. After rebuilding, they were compared one by one with the validation predictions saved in stage 4, with differences < 1e-6.
+  - Recommended model: unpenalised LR (D8.11).
+  - Pre-specified main-analysis model: tuned RF (D4.7), parameters max_depth 4, max_features 1, min_samples_leaf 10. The script re-applies the D4.7 rule (highest 10-fold CV AUC) and asserts that the model selected is RF.
+- **Thresholds**: each model uses the Youden threshold of its pooled OOF predictions in nested CV (median over 5 repeats): LR 0.229, RF 0.247.
+- **CI of AUPRC**: stratified bootstrap, resampling deaths and survivors separately with replacement with fixed group sizes, 2,000 replicates, seed 42, 95% percentile interval.
 
-| 指标 | 无惩罚 LR（推荐） | 调参 RF（D4.7） |
+| Metric | Unpenalised LR (recommended) | Tuned RF (D4.7) |
 |---|---|---|
-| AUROC（DeLong 95% CI） | 0.803（0.753–0.853） | 0.793（0.741–0.845） |
-| AUPRC（bootstrap 95% CI）；阳性率基线 0.253 | 0.581（0.500–0.683） | 0.605（0.521–0.693） |
+| AUROC (DeLong 95% CI) | 0.803 (0.753–0.853) | 0.793 (0.741–0.845) |
+| AUPRC (bootstrap 95% CI); positive-rate baseline 0.253 | 0.581 (0.500–0.683) | 0.605 (0.521–0.693) |
 | Brier / scaled Brier | 0.145 / 0.234 | 0.153 / 0.192 |
-| 校准截距 / 斜率 | −0.054 / 0.96 | −0.013 / 1.76 |
-| 阈值 | 0.229 | 0.247 |
+| Calibration intercept / slope | −0.054 / 0.96 | −0.013 / 1.76 |
+| Threshold | 0.229 | 0.247 |
 | accuracy / precision / recall / F1 / specificity | 0.722 / 0.470 / 0.778 / 0.586 / 0.703 | 0.686 / 0.432 / 0.768 / 0.553 / 0.659 |
-| 判为高风险的比例 | 41.8% | 44.9% |
-| DCA（0.05–0.60）：净获益同时高于 treat-all 和 0 | 56/56 个阈值 | 53/56 个阈值（0.07–0.59） |
+| Proportion classified high risk | 41.8% | 44.9% |
+| DCA (0.05–0.60): net benefit above both treat-all and 0 | 56/56 thresholds | 53/56 thresholds (0.07–0.59) |
 
-- **最终模型信息**（两个模型相同）：
-  - 训练集 1,568 人，事件 395 例；
-  - 候选变量 55 个（20% 缺失率筛选未剔除任何变量），LASSO 入选 12 个；
-  - EPV（事件数 / 入选变量数）= 32.9；事件数 / 候选变量数 = 7.2。
-- **解读**：
-  - 两个模型的 AUROC 与嵌套 CV 估计（LR 0.786、RF 0.788）同在 0.79–0.80 一带，留出集没有显示额外的过拟合。
-  - 调参 RF 在留出集上的校准斜率为 1.76，嵌套 CV OOF 为 1.48，两者方向一致：RF 的预测向均值收缩。无惩罚 LR 在留出集上的斜率为 0.96。
-  - 留出集只有 99 例死亡，两模型 AUROC 的 CI 大幅重叠，不据此比较两者优劣。
+- **Final model information** (the same for both models):
+  - Training set of 1,568 patients, 395 events;
+  - 55 candidate variables (the 20% missingness screening dropped none), 12 selected by LASSO;
+  - EPV (events / selected variables) = 32.9; events / candidate variables = 7.2.
+- **Interpretation**:
+  - The AUROCs of both models are in the same 0.79–0.80 range as the nested-CV estimates (LR 0.786, RF 0.788); the held-out set shows no additional overfitting.
+  - The calibration slope of the tuned RF is 1.76 on the held-out set and 1.48 in the nested-CV OOF, in the same direction: RF predictions are shrunk toward the mean. Unpenalised LR has a slope of 0.96 on the held-out set.
+  - The held-out set has only 99 deaths and the AUROC CIs of the two models overlap widely, so the two are not ranked on this basis.
 
-#### 第 2 步：共病时间敏感性分析（D8.2、D8.3，已运行）
+#### Step 2: comorbidity-timing sensitivity analysis (D8.2, D8.3, run)
 
-- **脚本**：`scripts/02b_comorb_time.py`，输出：
-  - `data/processed/features_comorb_time.parquet`（患者级，git 忽略）；
-  - `results/replication/comorb_time_summary_C.csv`、`comorb_time_flags_C.csv`（聚合；1–9 的计数显示为"<10"）。
-- **实现方式**：直接复用 mimic-code 的 SQL，不改写编码表。
-  - 把诊断编码统一挂到索引 hadm_id 下，构造重标记的诊断表，然后原样运行 `charlson.sql` 和 `sapsii.sql` 中的 `comorb` CTE。
-  - CCI 的编码来源 = 既往住院的全部编码 ∪ 索引住院去掉 D8.3 急性编码后的编码；保留年龄分。
-  - SAPS-II 慢性病项的编码来源 = 既往住院 ∪ 索引住院的全部编码；`sapsii_sens = sapsii − 原 comorbidity_score + 重算值`。
-  - 既往住院 = 同一患者 `dischtime` < 索引 `admittime` 的住院。
-  - **正确性检查**：只用索引住院的编码重跑时，charlson 17 个分项、年龄分、CCI 以及 SAPS-II 的 comorbidity_score 与原概念表逐人完全一致（断言通过）。
-- **子集库完整性**：口径 C 患者在子集库与原始文件中的行数相同，`admissions` 均为 13,936 行，`diagnoses_icd` 均为 266,948 行。子集库按 subject_id 抽取，因此包含这些患者的全部住院。
-- **`diabetes_with_cc` 不是 100%**：
-  - 口径 C 中有 <10 人在索引住院的 charlson `diabetes_with_cc = 0`，全部由 249.6x 编码解释。249.6x 是继发性糖尿病伴神经病变，属于论文 14 个 DN 编码，但不在 charlson 的糖尿病编码表内。
-  - **D8.2 的表述需要更正**：原文"14 个 DN 编码全部落在 diabetes_with_cc 编码表内"不准确。ICD-9 部分实际是 2506x 加上 24960/24961，后者不在表内。
-  - 影响：这 <10 人的 CCI 糖尿病项不是常数 2 分。复现线主分析保持原定义不变。
-  - 在敏感性分析中，`diabetes_with_cc` 为 1,960/1,960，由既往住院补齐。
-- **重算结果**（口径 C，1,960 人）：
-  - 1,123 人（57%）有既往住院；550 人的索引住院含 D8.3 定义的急性编码。
-  - CCI 中位数（IQR）：重算前 7（5, 9），重算后 7（5, 9）。843 人的 CCI 改变，其中 528 人升高、315 人降低，平均变化 +0.37。
-  - SAPS-II 中位数（IQR）：重算前 36（28, 44），重算后 36（29, 45）。21 人改变，平均变化 +0.13。
-  - **各共病的变化**：
+- **Script**: `scripts/02b_comorb_time.py`, outputs:
+  - `data/processed/features_comorb_time.parquet` (patient-level, git-ignored);
+  - `results/replication/comorb_time_summary_C.csv`, `comorb_time_flags_C.csv` (aggregate; counts of 1–9 shown as "<10").
+- **Implementation**: reuses the mimic-code SQL directly, without rewriting the code lists.
+  - Diagnosis codes are all attached to the index hadm_id to build a relabelled diagnosis table, and then the `comorb` CTEs in `charlson.sql` and `sapsii.sql` are run unchanged.
+  - Code source for CCI = all codes of prior hospitalizations ∪ codes of the index hospitalization after removing the D8.3 acute codes; age points kept.
+  - Code source for the SAPS-II chronic-disease items = all codes of prior hospitalizations ∪ index hospitalization; `sapsii_sens = sapsii − original comorbidity_score + recomputed value`.
+  - Prior hospitalizations = hospitalizations of the same patient with `dischtime` < index `admittime`.
+  - **Correctness check**: when rerun with index-hospitalization codes only, the 17 charlson components, age points, CCI and the SAPS-II comorbidity_score match the original concept tables exactly for every patient (assertion passed).
+- **Completeness of the subset database**: for definition C patients, the subset database and the raw files have the same row counts, 13,936 rows of `admissions` and 266,948 rows of `diagnoses_icd` in both. The subset database is extracted by subject_id, so it contains all hospitalizations of these patients.
+- **`diabetes_with_cc` is not 100%**:
+  - In definition C, <10 patients have charlson `diabetes_with_cc = 0` in the index hospitalization, all explained by 249.6x codes. 249.6x is secondary diabetes with neuropathy, which is among the paper's 14 DN codes but not in the charlson diabetes code list.
+  - **The statement in D8.2 needs correcting**: the original "all 14 DN codes fall within the diabetes_with_cc code list" is inaccurate. The ICD-9 part is actually 2506x plus 24960/24961, and the latter are not in the list.
+  - Impact: for these <10 patients the CCI diabetes item is not a constant 2 points. The replication-track main analysis keeps the original definition unchanged.
+  - In the sensitivity analysis `diabetes_with_cc` is 1,960/1,960, filled in by prior hospitalizations.
+- **Recomputed results** (definition C, 1,960 patients):
+  - 1,123 patients (57%) have a prior hospitalization; the index hospitalization of 550 patients contains acute codes as defined in D8.3.
+  - CCI median (IQR): 7 (5, 9) before recomputation, 7 (5, 9) after. The CCI of 843 patients changes, 528 up and 315 down, mean change +0.37.
+  - SAPS-II median (IQR): 36 (28, 44) before, 36 (29, 45) after. 21 patients change, mean change +0.13.
+  - **Change in each comorbidity**:
 
-    | 共病 | 原阳性 | 重算后阳性 | 因剔除急性编码失去 | 由既往住院新增 |
+    | Comorbidity | Originally positive | Positive after recomputation | Lost by removing acute codes | Added from prior hospitalizations |
     |---|---|---|---|---|
-    | 心梗 | 611 | 436 | 304 | 129 |
-    | 心衰 | 852 | 907 | 20 | 75 |
-    | 周围血管病 | 302 | 473 | <10 | 174 |
-    | 脑血管病 | 260 | 266 | 108 | 114 |
-    | 慢性肺病 | 517 | 634 | 0 | 117 |
-    | 肾病 | 909 | 981 | 0 | 72 |
-    | 恶性肿瘤 | 190 | 252 | 0 | 62 |
-    | 轻度肝病 | 213 | 265 | 11 | 63 |
-    | 消化性溃疡 | 62 | 106 | <10 | 45 |
+    | Myocardial infarction | 611 | 436 | 304 | 129 |
+    | Heart failure | 852 | 907 | 20 | 75 |
+    | Peripheral vascular disease | 302 | 473 | <10 | 174 |
+    | Cerebrovascular disease | 260 | 266 | 108 | 114 |
+    | Chronic pulmonary disease | 517 | 634 | 0 | 117 |
+    | Renal disease | 909 | 981 | 0 | 72 |
+    | Malignancy | 190 | 252 | 0 | 62 |
+    | Mild liver disease | 213 | 265 | 11 | 63 |
+    | Peptic ulcer | 62 | 106 | <10 | 45 |
 
-    - "由既往住院新增"指：去掉急性编码后的索引住院不阳性，加入既往住院后阳性。
-    - 其余分项（痴呆、风湿病、偏瘫、重度肝病、转移癌、AIDS 等）只增不减，见 `comorb_time_flags_C.csv`。
-    - SAPS-II 三个慢性病项由既往住院新增的人数：AIDS <10，血液系统恶性肿瘤 <10，转移癌 14。
-  - **最大的变化来自心梗**：304 人的心梗只有索引住院的急性编码（410/I21/I22），重算后不再计为既往心梗。
-  - **肾病"因剔除急性编码而失去 = 0"的原因**：口径 C 的索引住院中，有 586/N19 编码的人数为 **0**，因此剔除规则对肾病不起作用，并不是因为这些人同时有 N18/585 等其他肾病编码。
-    - 586/N19 在 MIMIC-IV 中几乎不被使用：整个 MIMIC-IV v3.1 的 `diagnoses_icd` 只有 119 行；口径 C 患者的全部住院（含既往住院）中 <10 行。
-    - 本数据中，AKI 编码为 584.x/N17.x（不在 charlson 表内），慢性肾病编码为 585.x/N18.x。
-    - 对 8e 的提示：D8.3 预设的 586/N19 计数在 CLIN 中预计同样接近 0（< 1%），届时按规则只记录计数。
-- **嵌套 CV**：
-  - **实现**：04f 新增 `--variant comorb_time`。
-    - 只替换 cci、sapsii 两列，其余特征与主分析相同；只跑推荐 LR 和调参 RF，5 × 10 折，种子与主分析相同，因此外层划分也相同。
-    - 缓存放在 `data/interim/nested_cache/replication_C_comorb_time/`，输出为 `nested_cv_full_*_C_comorb_time.csv`。
-    - 另输出 `nested_cv_full_vs_main_C_comorb_time.csv`：在相同的外层划分上，用 Nadeau–Bengio 校正比较 ΔAUROC（敏感性 − 主分析）。
-    - 主分析（不带 `--variant`）从缓存重跑后，7 个输出逐字节不变。
-  - **冒烟测试**（重复 0、第 0 折）：LASSO 32 s，调参 RF 57 s，LR < 0.1 s。外推全量约 **1.2 h**。
-  - **全量结果**（2026-10-03，5 × 10 折，日志 `results/logs/04f_nested_full_C_comorb_time.log`）：
-    - 运行情况：无 0 变量折；校准拟合全部收敛；LASSO 每折入选 8–16 个变量（中位数 12）。
-    - 与主分析同模型对比（指标定义同 D8.6；ΔAUROC 在相同的 50 个外层划分上配对计算，Nadeau–Bengio 校正）：
+    - "Added from prior hospitalizations" means: not positive in the index hospitalization after removing acute codes, positive after adding prior hospitalizations.
+    - The other components (dementia, rheumatic disease, hemiplegia, severe liver disease, metastatic cancer, AIDS etc.) only increase, see `comorb_time_flags_C.csv`.
+    - Numbers added from prior hospitalizations for the three SAPS-II chronic-disease items: AIDS <10, haematological malignancy <10, metastatic cancer 14.
+  - **The largest change comes from myocardial infarction**: for 304 patients the only MI codes are acute codes of the index hospitalization (410/I21/I22), so after recomputation they no longer count as prior MI.
+  - **Why renal disease has "lost by removing acute codes = 0"**: in the index hospitalizations of definition C the number of patients with a 586/N19 code is **0**, so the removal rule has no effect on renal disease; it is not because these patients also have other renal codes such as N18/585.
+    - 586/N19 are almost never used in MIMIC-IV: the whole MIMIC-IV v3.1 `diagnoses_icd` has only 119 such rows; across all hospitalizations of definition C patients (including prior ones) there are <10 rows.
+    - In these data AKI is coded as 584.x/N17.x (not in the charlson list) and chronic kidney disease as 585.x/N18.x.
+    - Implication for 8e: the pre-specified D8.3 count of 586/N19 in CLIN is also expected to be close to 0 (< 1%), in which case only the count will be recorded, per the rule.
+- **Nested CV**:
+  - **Implementation**: 04f gets a new `--variant comorb_time`.
+    - Only the cci and sapsii columns are replaced; all other features are the same as the main analysis. Only the recommended LR and tuned RF are run, 5 × 10 folds, with the same seeds as the main analysis, so the outer splits are also the same.
+    - The cache is in `data/interim/nested_cache/replication_C_comorb_time/`, and the outputs are `nested_cv_full_*_C_comorb_time.csv`.
+    - An additional output `nested_cv_full_vs_main_C_comorb_time.csv` compares ΔAUROC (sensitivity − main analysis) on the same outer splits with the Nadeau–Bengio correction.
+    - After the main analysis (without `--variant`) was rerun from the cache, its 7 outputs were byte-for-byte unchanged.
+  - **Smoke test** (repeat 0, fold 0): LASSO 32 s, tuned RF 57 s, LR < 0.1 s. Extrapolated full run about **1.2 h**.
+  - **Full results** (2026-10-03, 5 × 10 folds, log `results/logs/04f_nested_full_C_comorb_time.log`):
+    - Run status: no zero-variable fold; all calibration fits converged; LASSO selected 8–16 variables per fold (median 12).
+    - Same-model comparison with the main analysis (metric definitions as in D8.6; ΔAUROC computed pairwise on the same 50 outer splits, Nadeau–Bengio corrected):
 
-      | 指标 | 无惩罚 LR：主分析 | 无惩罚 LR：共病时间 | 调参 RF：主分析 | 调参 RF：共病时间 |
+      | Metric | Unpenalised LR: main analysis | Unpenalised LR: comorbidity timing | Tuned RF: main analysis | Tuned RF: comorbidity timing |
       |---|---|---|---|---|
-      | AUROC（折均值 ± SD） | 0.786 ± 0.036 | 0.787 ± 0.036 | 0.788 ± 0.036 | 0.790 ± 0.036 |
-      | ΔAUROC（敏感性 − 主分析，95% CI） | — | +0.001（−0.006, 0.008） | — | +0.002（−0.006, 0.010） |
-      | 合并 OOF AUROC | 0.785 | 0.786 | 0.786 | 0.787 |
-      | AUPRC（合并 OOF） | 0.550 | 0.548 | 0.548 | 0.545 |
-      | Brier（合并 OOF） | 0.151 | 0.151 | 0.154 | 0.155 |
-      | 校准斜率（合并 OOF，5 次重复均值） | 0.854 | 0.852 | 1.483 | 1.591 |
-      | CCI 被 LASSO 入选的折数 | 50/50 | 50/50 | 50/50 | 50/50 |
-      | SAPS-II 被 LASSO 入选的折数 | 50/50 | 50/50 | 50/50 | 50/50 |
+      | AUROC (fold mean ± SD) | 0.786 ± 0.036 | 0.787 ± 0.036 | 0.788 ± 0.036 | 0.790 ± 0.036 |
+      | ΔAUROC (sensitivity − main analysis, 95% CI) | — | +0.001 (−0.006, 0.008) | — | +0.002 (−0.006, 0.010) |
+      | Pooled OOF AUROC | 0.785 | 0.786 | 0.786 | 0.787 |
+      | AUPRC (pooled OOF) | 0.550 | 0.548 | 0.548 | 0.545 |
+      | Brier (pooled OOF) | 0.151 | 0.151 | 0.154 | 0.155 |
+      | Calibration slope (pooled OOF, mean over 5 repeats) | 0.854 | 0.852 | 1.483 | 1.591 |
+      | Folds in which LASSO selected CCI | 50/50 | 50/50 | 50/50 | 50/50 |
+      | Folds in which LASSO selected SAPS-II | 50/50 | 50/50 | 50/50 | 50/50 |
 
-      （LASSO 在每折中只做一次，各模型共用，因此两模型的入选频率相同。）
-    - Youden 阈值（合并 OOF，5 次重复中位数）：LR 0.254，RF 0.258（主分析分别为 0.229、0.247）。
-    - 其他变量的入选频率变化不大，如 nlr 36 → 42、oasis 41 → 46、aniongap_min 43 → 48、sii 47 → 44。
-    - **结论**：把 CCI 与 SAPS-II 慢性病项改为"既往住院 ∪ 索引住院慢性病编码"后，两个模型的区分度、AUPRC、Brier 和 LR 的校准都基本不变（|ΔAUROC| ≤ 0.002，CI 跨 0），CCI 仍在每折入选。
-      - 尽管 843 人的 CCI 改变，主分析中"CCI 是稳定的重要预测因子"这一结论，不依赖于索引住院编码的时间归属问题。
-      - 调参 RF 的校准斜率从 1.48 升至 1.59，向均值收缩更明显，但方向与主分析相同。
+      (LASSO is run only once per fold and shared by all models, so the selection frequencies are the same for the two models.)
+    - Youden threshold (pooled OOF, median over 5 repeats): LR 0.254, RF 0.258 (0.229 and 0.247 in the main analysis).
+    - The selection frequencies of the other variables change little, e.g. nlr 36 → 42, oasis 41 → 46, aniongap_min 43 → 48, sii 47 → 44.
+    - **Conclusion**: after changing CCI and the SAPS-II chronic-disease items to "prior hospitalizations ∪ chronic-disease codes of the index hospitalization", the discrimination, AUPRC and Brier of both models and the calibration of LR are essentially unchanged (|ΔAUROC| ≤ 0.002, CI crosses 0), and CCI is still selected in every fold.
+      - Although the CCI of 843 patients changes, the main-analysis conclusion that "CCI is a stable important predictor" does not depend on the timing attribution of index-hospitalization codes.
+      - The calibration slope of the tuned RF rises from 1.48 to 1.59, with more pronounced shrinkage toward the mean, but in the same direction as the main analysis.
 
-### D8.13 8e-1 结果：CLIN 队列与特征；特征均值改为与行顺序无关（2026-10-03）
+### D8.13 8e-1 results: CLIN cohort and features; feature means made independent of row order (2026-10-03)
 
-#### 子集库扩充
-- **扩充**：`01_cohort.py` 现在为"复现线候选（口径 A–D，已过 LOS/年龄）∪ CLIN 候选（口径 C 的索引住院，年龄 ≥ 18，无 LOS 条件）"建子集库，共 3,189 名患者（原为 3,046 人）。原有 3,046 人全部包含在内。
-- **完整性**：CLIN 患者在子集库中的 `admissions`（17,022 行）、`diagnoses_icd`（323,916 行）与原始文件一致。
-- **扩充后的核对**：
-  - `cohort.parquet`、split、`features_comorb_time.parquet` 和 `results/replication/` 下的全部文件逐字节不变。
-  - `itemid_audit_*.csv` 统计整个子集库，随人数增加而改变，属于预期变化。
-  - `features.parquet` 中有 5 列（hemoglobin_mean、wbc_mean、rbc_mean、rdw_mean、pwr）在浮点末位不同，最大绝对差 1.4e-14，缺失模式不变。
-- **原因**：DuckDB 建库时行的物理顺序不固定（`preserve_insertion_order = false`，并行插入），而 `avg()` 按物理顺序累加浮点数。
-  - `tests/check_subset_extension.py` 用原来的 3,046 名患者重建了一次库，也没能复现原 `features.parquet` 的哈希。可见旧文件本身依赖于某一次建库的行顺序，不可逐字节重现。
-  - 阶段 8c 发现的多线程 `avg()` 差异是同一类问题。
-- **修正**：`02_features.py` 中所有均值（9 个首日化验均值，以及单位混杂诊断中的 5 个均值）改为 `list_avg(list_sort(list(x) FILTER (WHERE x IS NOT NULL)))`，即先排序再求平均，结果不再依赖行顺序和线程数。
-  - 残余风险：生命体征均值来自 mimic-code 的 `first_day_vitalsign` 概念表（建库时用 `avg()` 计算），理论上同样依赖行顺序。本次扩充后这些列逐位不变；按"不改 mimic-code 概念"的原则，不作修改。
-- **重跑**：02（C 与 clinical）→ 03 → 04 → 04b → 04c → 04e → 05。与上次提交（4cbbf99）比较：
-  - **完全不变**：LASSO 选出的变量（忠实版与无泄露版均为 12 个）、λ.min、λ.1se（最大差 0）、`tuned_hyperparameters.json`、`model_performance.csv` 及其余全部模型指标表。`report.md` 和 `report_en.md` 逐字节相同。
-  - **只有浮点末位差异**：
-    - `lasso_coefs_faithful` 1.3e-15、`lasso_coefs_noleak` 9.2e-16；
-    - `shap_importance`、`shap_importance_lr` 3.9e-16。
-  - **`table1.csv`、`table1_after_imputation.csv`**：
-    - hemoglobin/wbc/rbc/rdw_mean 和 pwr 的 Mann-Whitney p 值变化，最大绝对差 7.0e-4（末位差异改变了并列值，同 8c）；Shapiro p 值的差 ≤ 4e-19。
-    - 显示值只有 rbc_mean 的中位数 3.44 → 3.43（总体列，IQR 不变）。该值不出现在报告中。
-  - **`feature_vs_paper.csv`**：同样只有 rbc_mean 的中位数 3.44 → 3.43。
-  - **`itemid_audit_lab.csv`、`itemid_audit_chart.csv`**：统计整个子集库，人数增加后计数改变，属于预期变化。
-- **沿用旧特征的结果**：04d、04f（主分析与 comorb_time 敏感性分析）、04g 不重跑，沿用此前特征（与新特征相差约 1e-14）。这一差异远小于任何显示精度和模型随机性，不影响任何结论。04f 的缓存 meta 不含特征哈希，若今后重跑会直接复用这些折内结果。
+#### Extension of the subset database
+- **Extension**: `01_cohort.py` now builds the subset database for "replication-track candidates (definitions A–D, after LOS/age) ∪ CLIN candidates (index hospitalization of definition C, age ≥ 18, no LOS condition)", 3,189 patients in total (previously 3,046). All of the original 3,046 patients are included.
+- **Completeness**: for CLIN patients, `admissions` (17,022 rows) and `diagnoses_icd` (323,916 rows) in the subset database match the raw files.
+- **Checks after the extension**:
+  - `cohort.parquet`, split, `features_comorb_time.parquet` and all files under `results/replication/` are byte-for-byte unchanged.
+  - `itemid_audit_*.csv` counts the whole subset database and changes as the number of patients increases; this is expected.
+  - In `features.parquet`, 5 columns (hemoglobin_mean, wbc_mean, rbc_mean, rdw_mean, pwr) differ in the last floating-point digits, maximum absolute difference 1.4e-14, with the missingness pattern unchanged.
+- **Cause**: the physical row order is not fixed when DuckDB builds the database (`preserve_insertion_order = false`, parallel inserts), and `avg()` accumulates floating-point numbers in physical order.
+  - `tests/check_subset_extension.py` rebuilt the database once with the original 3,046 patients and also could not reproduce the hash of the original `features.parquet`. So the old file itself depended on the row order of one particular build and is not byte-for-byte reproducible.
+  - The multithreaded `avg()` difference found in stage 8c is the same kind of problem.
+- **Fix**: all means in `02_features.py` (the 9 first-day lab means and the 5 means in the unit-mixing diagnostic) now use `list_avg(list_sort(list(x) FILTER (WHERE x IS NOT NULL)))`, i.e. sort first and then average, so the result no longer depends on row order and thread count.
+  - Residual risk: the vital-sign means come from the mimic-code `first_day_vitalsign` concept table (computed with `avg()` when the database is built) and in theory also depend on row order. After this extension these columns are unchanged digit for digit; following the principle of "not modifying mimic-code concepts", they are not changed.
+- **Rerun**: 02 (C and clinical) → 03 → 04 → 04b → 04c → 04e → 05. Compared with the previous commit (4cbbf99):
+  - **Completely unchanged**: the variables selected by LASSO (12 in both the faithful and leakage-free versions), λ.min, λ.1se (maximum difference 0), `tuned_hyperparameters.json`, `model_performance.csv` and all other model metric tables. `report.md` and `report_en.md` are byte-for-byte identical.
+  - **Only last-digit floating-point differences**:
+    - `lasso_coefs_faithful` 1.3e-15, `lasso_coefs_noleak` 9.2e-16;
+    - `shap_importance`, `shap_importance_lr` 3.9e-16.
+  - **`table1.csv`, `table1_after_imputation.csv`**:
+    - The Mann-Whitney p-values of hemoglobin/wbc/rbc/rdw_mean and pwr change, maximum absolute difference 7.0e-4 (last-digit differences changed ties, as in 8c); Shapiro p-values differ by ≤ 4e-19.
+    - The only displayed value that changes is the median of rbc_mean, 3.44 → 3.43 (overall column, IQR unchanged). This value does not appear in the report.
+  - **`feature_vs_paper.csv`**: likewise only the median of rbc_mean, 3.44 → 3.43.
+  - **`itemid_audit_lab.csv`, `itemid_audit_chart.csv`**: count the whole subset database, so the counts change after the number of patients increases; this is expected.
+- **Results that keep the old features**: 04d, 04f (main analysis and comorb_time sensitivity analysis) and 04g are not rerun and keep the earlier features (which differ from the new ones by about 1e-14). This difference is far smaller than any display precision and model randomness and does not affect any conclusion. The 04f cache meta does not include a feature hash, so a future rerun would reuse these fold results directly.
 
-#### CLIN 队列（D8.1、D8.10；`scripts/01c_cohort_clin.py` → `results/clinical/cohort_flow_clin.csv`）
+#### CLIN cohort (D8.1, D8.10; `scripts/01c_cohort_clin.py` → `results/clinical/cohort_flow_clin.csv`)
 
-| 步骤 | 剩余 | 本步排除 | 1 年死亡 | 死亡率 |
+| Step | Remaining | Excluded at this step | One-year deaths | Mortality |
 |---|---|---|---|---|
-| [1] 有含 DN 编码且有 ICU 的住院的患者 | 3,189 | 0 | 857 | 26.9% |
-| [2] 取索引住院（口径 C）的首次 ICU stay | 3,189 | 0 | 857 | 26.9% |
-| [3] 年龄 ≥ 18 | 3,189 | 0 | 857 | 26.9% |
-| [4] 排除 ICU stay < 24 h 且 24 h 时存活（转出） | 2,595 | 594 | 718 | 27.7% |
-| [5] 排除入科 24 h 前死亡 | 2,557 | 38 | 680 | 26.6% |
+| [1] Patients with a hospitalization that has a DN code and an ICU stay | 3,189 | 0 | 857 | 26.9% |
+| [2] Take the first ICU stay of the index hospitalization (definition C) | 3,189 | 0 | 857 | 26.9% |
+| [3] Age ≥ 18 | 3,189 | 0 | 857 | 26.9% |
+| [4] Exclude ICU stay < 24 h and alive at 24 h (transferred out) | 2,595 | 594 | 718 | 27.7% |
+| [5] Exclude death before 24 h after ICU admission | 2,557 | 38 | 680 | 26.6% |
 
-- **步骤 4、5 的判定**：
-  - 入科 24 h 时存活 = `deathtime` 为空或 > intime + 24 h，且 `dod` 为空或 ≥ date(intime + 24 h)。
-  - 24 h 内死亡且 ICU stay 也 < 24 h 的患者，计入第 5 步。
-  - 步骤 [1] 的 3,189 人与复现线流程表的 [1b] 一致（断言通过）。
-- **划分**：分层 80/20（seed 42），训练集 2,045 人（死亡 544 例，26.6%），留出集 512 人（死亡 136 例，26.6%）。保存为 `data/processed/split_clin.parquet`。
-- 若对 CLIN 再施加 LOS > 48 h 条件，将排除 56 人（只作参考，CLIN 不使用该条件）。
+- **Criteria for steps 4 and 5**:
+  - Alive at 24 h after ICU admission = `deathtime` null or > intime + 24 h, and `dod` null or ≥ date(intime + 24 h).
+  - Patients who died within 24 h and whose ICU stay was also < 24 h are counted in step 5.
+  - The 3,189 patients of step [1] agree with [1b] of the replication-track flow table (assertion passed).
+- **Split**: stratified 80/20 (seed 42), training set 2,045 patients (544 deaths, 26.6%), held-out set 512 patients (136 deaths, 26.6%). Saved as `data/processed/split_clin.parquet`.
+- Applying the LOS > 48 h condition to CLIN as well would exclude 56 patients (for reference only; CLIN does not use this condition).
 
-#### CLIN 特征（D8.2–D8.4；`02b_comorb_time.py --track clinical`、`02_features.py --track clinical`）
-- **化验、生命体征、评分**：时间窗与定义同复现线，不要求 CBC 完整。
-- **共病**：
-  - 6 个共病变量来自"既往住院 ∪ 索引住院去掉 D8.3 急性编码"：心梗、心衰、慢性肺病、肾病用 charlson；高血压、肥胖用 Quan-Elixhauser。
-  - CCI 不含年龄分。
-  - SAPS-II 的慢性病项在"既往住院 ∪ 索引住院"上重算。
-  - 输出 `data/processed/comorb_clin.parquet`、`results/clinical/comorb_clin_summary.csv`、`comorb_clin_flags.csv`。
-- **CCI、SAPS-II 的分布与重算前后对比**（2,557 人）：
-  - CCI（不含年龄分）中位数（IQR）：只用索引住院编码为 5（3, 6），按 CLIN 规则为 5（4, 7），1,075 人改变。
-  - SAPS-II 中位数 36（29, 45）不变，26 人改变。
-- **计数**：
-  - `diabetes_with_cc = 1`：只看索引住院为 99.8%，按 CLIN 规则为 99.9%。缺口来自 249.6x 编码，同 D8.12。
-  - D8.3 的 586/N19：只因索引住院 586/N19 而计为肾病的有 0 人（0%，< 1%）。索引住院中有 586/N19 编码的人数也为 0。**不做**加回的敏感性分析，只记录计数。
-  - `has_prior_admission = 1`：1,452 人（56.8%）。
-- **白细胞分类**（D8.4）：
-  - 新增 `wbc_diff_missing`（三种细胞计数全部缺失），为 1 的有 873 人（34.1%）。
-  - 8 个相关变量的缺失组合（`wbc_diff_patterns_clin.csv`）：全部存在 1,663 人；全部缺失 873 人；只缺 lmr 15 人；另外两种组合各 <10 人。
-  - 部分缺失（`wbc_diff_missing = 0` 但至少缺一个）共 21 人，均因比值的分母为 0（D2.10）。按 D8.4，这些缺失在折内用均值插补。
-- **缺失率**（`missingness_clin.csv`，全队列计算，只作标记）：
-  - 超过 20% 的是 lymphocytes/neutrophils/monocytes_mean（34.1%）和 nlr、plr、lmr、pnr、sii（34.2–34.7%），即 D8.4 预期的白细胞分类变量。
-  - 其余变量最高为 ptt（10.3%）。
-  - 全队列上不做任何剔除或插补，这些都在 04f 的折内完成。
-- **输出**：`data/processed/features_clin.parquet`，包含 55 个变量、`wbc_diff_missing`、`has_prior_admission`、`hypertension_uncomplicated`。
+#### CLIN features (D8.2–D8.4; `02b_comorb_time.py --track clinical`, `02_features.py --track clinical`)
+- **Labs, vital signs, scores**: time windows and definitions as in the replication track; a complete CBC is not required.
+- **Comorbidities**:
+  - The 6 comorbidity variables come from "prior hospitalizations ∪ index hospitalization without the D8.3 acute codes": MI, heart failure, chronic pulmonary disease and renal disease use charlson; hypertension and obesity use Quan-Elixhauser.
+  - CCI has no age points.
+  - The SAPS-II chronic-disease items are recomputed on "prior hospitalizations ∪ index hospitalization".
+  - Outputs `data/processed/comorb_clin.parquet`, `results/clinical/comorb_clin_summary.csv`, `comorb_clin_flags.csv`.
+- **Distribution of CCI and SAPS-II before and after recomputation** (2,557 patients):
+  - CCI (without age points) median (IQR): 5 (3, 6) with index-hospitalization codes only, 5 (4, 7) under the CLIN rule; 1,075 patients change.
+  - SAPS-II median 36 (29, 45) unchanged; 26 patients change.
+- **Counts**:
+  - `diabetes_with_cc = 1`: 99.8% looking only at the index hospitalization, 99.9% under the CLIN rule. The gap comes from 249.6x codes, as in D8.12.
+  - D8.3 586/N19: 0 patients count as having renal disease only because of index-hospitalization 586/N19 (0%, < 1%). The number with a 586/N19 code in the index hospitalization is also 0. The add-back sensitivity analysis is **not done**; only the count is recorded.
+  - `has_prior_admission = 1`: 1,452 patients (56.8%).
+- **White-cell differential** (D8.4):
+  - New `wbc_diff_missing` (all three cell counts missing), equal to 1 for 873 patients (34.1%).
+  - Missingness patterns of the 8 related variables (`wbc_diff_patterns_clin.csv`): all present 1,663 patients; all missing 873; only lmr missing 15; two other patterns <10 each.
+  - Partial missingness (`wbc_diff_missing = 0` but at least one missing) in 21 patients in total, all because the denominator of a ratio is 0 (D2.10). Per D8.4, these values are mean-imputed within folds.
+- **Missing rates** (`missingness_clin.csv`, computed on the whole cohort, for flagging only):
+  - Above 20% are lymphocytes/neutrophils/monocytes_mean (34.1%) and nlr, plr, lmr, pnr, sii (34.2–34.7%), i.e. the white-cell differential variables expected in D8.4.
+  - The highest among the other variables is ptt (10.3%).
+  - Nothing is dropped or imputed on the whole cohort; all of this is done within the 04f folds.
+- **Output**: `data/processed/features_clin.parquet`, containing the 55 variables, `wbc_diff_missing`, `has_prior_admission` and `hypertension_uncomplicated`.
 
-### D8.14 8e-3 结果：CLIN 按 D8.8 的模型选择（2026-10-03，**尚未冻结**）
+### D8.14 8e-3 results: CLIN model selection by D8.8 (2026-10-03, **not yet frozen**)
 
-**状态**：只做选择，**尚未冻结**。D8.3、D8.4 修订预设的两项敏感性分析（只用既往住院诊断；白细胞分类按方案 1）尚未运行；冻结与留出集确认性评估另行进行。本步未读取、未计算任何 CLIN 留出集（512 人）数据。
+**Status**: selection only, **not yet frozen**. The two sensitivity analyses pre-specified in the D8.3 and D8.4 revisions (prior-hospitalization diagnoses only; white-cell differential under option 1) have not been run; freezing and the confirmatory held-out evaluation are done separately. This step did not read or compute anything on the CLIN held-out set (512 patients).
 
-**数据来源**：`scripts/04f_nested_full.py --track clinical`（ce548d3），输出 `results/clinical/nested_cv_full_{summary,folds,pairwise,dca,oof_threshold,params,selection}_clin.csv`，日志 `results/logs/04f_nested_full_clin.log`。训练集 2,045 人（死亡 544，26.6%），外层 10 折 × 5 次重复（种子 42–46），9 个模型均跑满 5 次重复（未降级），配对比较 r = 5、k = 10（外层训练折 1,840–1,841 人、验证折 204–205 人）。
-- 候选变量 56 个（55 个 + `wbc_diff_missing`）。20% 缺失率筛选在各折均未剔除变量（白细胞分类 8 个变量按 D8.4 方案 2 豁免，其余变量缺失均 < 20%）。LASSO 每折入选 13–23 个变量（中位数 17），无 0 变量折。
-- 校准拟合：只有 RF（R 默认）有 1 个外层折截距不收敛（记为 NaN，按 D8.11 处理只报告其合并 OOF 校准）；其余模型的折级与合并 OOF 校准拟合全部收敛，无 NaN 斜率。
-- 以下 ΔAUROC 与 Nadeau–Bengio CI 已从 folds 表独立重算，与 pairwise 表一致。
+**Data source**: `scripts/04f_nested_full.py --track clinical` (ce548d3), outputs `results/clinical/nested_cv_full_{summary,folds,pairwise,dca,oof_threshold,params,selection}_clin.csv`, log `results/logs/04f_nested_full_clin.log`. Training set of 2,045 patients (544 deaths, 26.6%), outer 10 folds × 5 repeats (seeds 42–46), all 9 models ran the full 5 repeats (no fallback), paired comparisons with r = 5, k = 10 (outer training folds 1,840–1,841 patients, validation folds 204–205).
+- 56 candidate variables (55 + `wbc_diff_missing`). The 20% missingness screening dropped no variable in any fold (the 8 white-cell differential variables are exempt under D8.4 option 2, and all other variables have < 20% missing). LASSO selected 13–23 variables per fold (median 17); no zero-variable fold.
+- Calibration fits: only RF (R default) has 1 outer fold whose intercept does not converge (recorded as NaN; handled as in D8.11, reporting only its pooled OOF calibration); all fold-level and pooled OOF calibration fits of the other models converge, with no NaN slopes.
+- The ΔAUROC and Nadeau–Bengio CIs below were recomputed independently from the folds table and agree with the pairwise table.
 
-| 模型 | AUROC（50 折均值 ± SD） | AUPRC（合并 OOF，5 次重复均值；基线 0.266） | ΔAUROC vs M\*（NB 校正 95% CI） | 等价 | OOF 校准斜率（5 次重复均值） |
+| Model | AUROC (mean ± SD over 50 folds) | AUPRC (pooled OOF, mean over 5 repeats; baseline 0.266) | ΔAUROC vs M\* (NB-corrected 95% CI) | Equivalent | OOF calibration slope (mean over 5 repeats) |
 |---|---|---|---|---|---|
-| LR（L2）= **M\*** | 0.8013 ± 0.0261 | 0.594 | — | 是（M\*） | 1.108 |
-| LR（无惩罚） | 0.7985 ± 0.0259 | 0.592 | 0.0028（−0.0010, 0.0065） | 是 | 0.898 |
-| SVM（调参） | 0.7976 ± 0.0281 | 0.584 | 0.0036（−0.0022, 0.0094） | 是 | 0.920 |
-| RF（调参） | 0.7970 ± 0.0282 | 0.591 | 0.0042（−0.0052, 0.0137） | 是 | 1.465 |
-| XGBoost（调参） | 0.7953 ± 0.0280 | 0.596 | 0.0059（−0.0035, 0.0154） | 是 | 0.989 |
-| XGBoost（论文参数） | 0.7936 ± 0.0289 | 0.597 | 0.0077（−0.0018, 0.0173） | 是 | 1.019 |
-| RF（论文字面参数） | 0.7809 ± 0.0289 | 0.560 | 0.0203（0.0081, 0.0325） | 否 | 1.088 |
-| SVM（论文参数） | 0.7557 ± 0.0350 | 0.550 | 0.0456（0.0265, 0.0646） | 否 | 0.980 |
-| RF（R 默认） | 0.7400 ± 0.0373 | 0.488 | 0.0613（0.0391, 0.0835） | 否 | 0.180 |
+| LR (L2) = **M\*** | 0.8013 ± 0.0261 | 0.594 | — | yes (M\*) | 1.108 |
+| LR (unpenalised) | 0.7985 ± 0.0259 | 0.592 | 0.0028 (−0.0010, 0.0065) | yes | 0.898 |
+| SVM (tuned) | 0.7976 ± 0.0281 | 0.584 | 0.0036 (−0.0022, 0.0094) | yes | 0.920 |
+| RF (tuned) | 0.7970 ± 0.0282 | 0.591 | 0.0042 (−0.0052, 0.0137) | yes | 1.465 |
+| XGBoost (tuned) | 0.7953 ± 0.0280 | 0.596 | 0.0059 (−0.0035, 0.0154) | yes | 0.989 |
+| XGBoost (paper parameters) | 0.7936 ± 0.0289 | 0.597 | 0.0077 (−0.0018, 0.0173) | yes | 1.019 |
+| RF (paper literal parameters) | 0.7809 ± 0.0289 | 0.560 | 0.0203 (0.0081, 0.0325) | no | 1.088 |
+| SVM (paper parameters) | 0.7557 ± 0.0350 | 0.550 | 0.0456 (0.0265, 0.0646) | no | 0.980 |
+| RF (R default) | 0.7400 ± 0.0373 | 0.488 | 0.0613 (0.0391, 0.0835) | no | 0.180 |
 
-**按 D8.8 执行**（与 D8.11 口径 C 的做法相同）：
-1. M\* = **LR（L2）**，外层 AUROC 0.8013。
-2. 等价集 = {LR L2, LR 无惩罚, SVM 调参, RF 调参, XGBoost 调参, XGBoost 论文参数}：5 个候选的 ΔAUROC 均 ≤ 0.01（最大 0.0077），按第一条即等价。RF（论文字面参数）Δ = 0.0203 > 0.02 且 CI 不跨 0；SVM（论文参数）、RF（R 默认）Δ > 0.04，均不等价。
-3. 等价集中有 LR → 选 LR。
-4. 两种 LR 都在等价集内 → 比较合并 OOF 校准斜率的 |ln 斜率|，口径同 D8.11：每次重复把 10 个外层验证折合并为覆盖全部 2,045 人的 OOF 预测，logistic 重校准（p 截断到 [1e-6, 1 − 1e-6]）得斜率 b_r，再取 (1/5)·Σ|ln b_r|；不收敛记为 NaN（本次两种 LR 均无不收敛）。
-   - 每次重复的斜率（|ln 斜率|）：
+**Applying D8.8** (same procedure as D8.11 for definition C):
+1. M\* = **LR (L2)**, outer AUROC 0.8013.
+2. Equivalence set = {LR L2, LR unpenalised, SVM tuned, RF tuned, XGBoost tuned, XGBoost paper parameters}: these 5 candidates all have ΔAUROC ≤ 0.01 (maximum 0.0077) and are equivalent by the first condition. RF (paper literal parameters) has Δ = 0.0203 > 0.02 with a CI not crossing 0; SVM (paper parameters) and RF (R default) have Δ > 0.04; none is equivalent.
+3. The equivalence set contains LR → choose LR.
+4. Both LRs are in the equivalence set → compare |ln slope| of the pooled OOF calibration slope, computed as in D8.11: for each repeat the 10 outer validation folds are pooled into OOF predictions covering all 2,045 patients, logistic recalibration (p clipped to [1e-6, 1 − 1e-6]) gives slope b_r, and then (1/5)·Σ|ln b_r| is taken; non-convergence is recorded as NaN (neither LR had any non-convergence here).
+   - Slope of each repeat (|ln slope|):
 
-     | 种子 | 42 | 43 | 44 | 45 | 46 | 平均 |
+     | Seed | 42 | 43 | 44 | 45 | 46 | Mean |
      |---|---|---|---|---|---|---|
-     | 无惩罚 LR | 0.908（0.097） | 0.885（0.122） | 0.864（0.146） | 0.904（0.101） | 0.927（0.076） | 0.1085 |
-     | L2 LR | 1.115（0.109） | 1.098（0.093） | 1.084（0.081） | 1.112（0.106） | 1.132（0.124） | 0.1024 |
+     | Unpenalised LR | 0.908 (0.097) | 0.885 (0.122) | 0.864 (0.146) | 0.904 (0.101) | 0.927 (0.076) | 0.1085 |
+     | L2 LR | 1.115 (0.109) | 1.098 (0.093) | 1.084 (0.081) | 1.112 (0.106) | 1.132 (0.124) | 0.1024 |
 
-   - 0.1024 < 0.1085 → **L2 LR**。
-   - 差距很小（0.006），且逐次重复看，无惩罚 LR 在 3/5 次重复（42、45、46）中更接近 1，L2 LR 的平均优势来自种子 43、44。与 D8.11 一样，这一步只是按规则机械地分出先后，不构成"L2 LR 校准更好"的证据；两者偏离 1 的程度相近、方向相反（无惩罚 LR 略偏极端，L2 LR 略偏向均值）。
-5. **CLIN 的所选模型 = LR（L2）**（尚未冻结）。与口径 C 的推荐模型（无惩罚 LR）不同，原因只在第 4 步的校准取舍，两种 LR 的 AUROC 相差 0.003（CI 跨 0）。
-   - 内层调参在 50/50 折都选 C = 0.01（网格 0.001–100 及 ∞，0.01 不在边界），属于较强收缩。最终模型按 D8.5 同一流程在完整训练集上重新调参。
-   - 合并 OOF AUROC 0.8006，与折均值 0.8013 接近，没有出现口径 C 中 L2 LR 那样的折均值/合并值差距（D8.11）。
-- **推荐理由的写法（D8.8 第 6、7 条）**：L2 LR 恰好是 M\*，但它与等价集中其余 5 个模型的差距都 ≤ 0.008 且 CI 跨 0，**不声称区分度更好**。理由只写简约（LASSO 入选变量上的 logistic 模型）、可解释性和"两种 LR 校准相当"。报告须写明第 2、3 步是预设的简约性偏好。
+   - 0.1024 < 0.1085 → **L2 LR**.
+   - The gap is very small (0.006), and repeat by repeat unpenalised LR is closer to 1 in 3/5 repeats (42, 45, 46); the average advantage of L2 LR comes from seeds 43 and 44. As in D8.11, this step only orders the two mechanically by the rule and is not evidence that "L2 LR is better calibrated"; the two deviate from 1 by similar amounts in opposite directions (unpenalised LR slightly too extreme, L2 LR slightly toward the mean).
+5. **Selected model for CLIN = LR (L2)** (not yet frozen). It differs from the recommended model of definition C (unpenalised LR) only because of the calibration tie-break in step 4; the AUROCs of the two LRs differ by 0.003 (CI crosses 0).
+   - Inner tuning chose C = 0.01 in 50/50 folds (grid 0.001–100 and ∞; 0.01 is not at the boundary), which is fairly strong shrinkage. The final model is re-tuned on the full training set with the same procedure as D8.5.
+   - The pooled OOF AUROC of 0.8006 is close to the fold mean of 0.8013, with no fold-mean/pooled gap like that of L2 LR in definition C (D8.11).
+- **How the recommendation is justified (D8.8 items 6 and 7)**: L2 LR happens to be M\*, but its gap to each of the other 5 models in the equivalence set is ≤ 0.008 with CIs crossing 0, so **no claim of better discrimination** is made. The justification covers only parsimony (a logistic model on the LASSO-selected variables), interpretability and "the two LRs are similarly calibrated". The report must state that steps 2 and 3 are a pre-specified preference for parsimony.
 
-**调参 RF（与口径 C 的 D4.7 预设主分析模型对应，照常报告）**：AUROC 0.7970 ± 0.0282，与 M\* 等价；合并 OOF 校准斜率 1.465（各次重复 1.34–1.55），预测向均值收缩，与口径 C（1.48）方向一致。
+**Tuned RF (corresponding to the D4.7 pre-specified main-analysis model of definition C, reported as usual)**: AUROC 0.7970 ± 0.0282, equivalent to M\*; pooled OOF calibration slope 1.465 (1.34–1.55 across repeats), predictions shrunk toward the mean, in the same direction as definition C (1.48).
 
-**Youden 阈值**（合并 OOF，5 次重复中位数）：L2 LR 0.258（范围 0.239–0.277）；调参 RF 0.241（0.233–0.266）；无惩罚 LR 0.273（0.252–0.299）。
+**Youden thresholds** (pooled OOF, median over 5 repeats): L2 LR 0.258 (range 0.239–0.277); tuned RF 0.241 (0.233–0.266); unpenalised LR 0.273 (0.252–0.299).
 
-**LASSO 入选频率**（50 折，LASSO 每折一次、各模型共用；`nested_cv_full_selection_clin.csv`）：
-- 50/50：age、aniongap_min、cci、oasis、apsiii、resp_rate_mean、rdw_mean、chloride_max、obesity；
-- 49：bun_min；47：sapsii；46：pt_min；45：nlr；35：ptt_min；33：lmr；31：plr；29：lods；28：sii；22：monocytes_mean；15：gender_male、calcium_min；
-- `wbc_diff_missing`：13/50。
-- 6 个共病中只有 obesity 入选（50/50），心梗、心衰、慢性肺病、肾病、高血压均为 0/50（CCI 50/50）。
+**LASSO selection frequencies** (50 folds; LASSO is run once per fold and shared by all models; `nested_cv_full_selection_clin.csv`):
+- 50/50: age, aniongap_min, cci, oasis, apsiii, resp_rate_mean, rdw_mean, chloride_max, obesity;
+- 49: bun_min; 47: sapsii; 46: pt_min; 45: nlr; 35: ptt_min; 33: lmr; 31: plr; 29: lods; 28: sii; 22: monocytes_mean; 15: gender_male, calcium_min;
+- `wbc_diff_missing`: 13/50.
+- Of the 6 comorbidities only obesity is selected (50/50); MI, heart failure, chronic pulmonary disease, renal disease and hypertension are all 0/50 (CCI 50/50).
 
-**与口径 C 对比**（不同队列、预测时点和候选变量，非配对，只作描述）：CLIN 所选 L2 LR 的嵌套 CV AUROC 0.801，口径 C 推荐的无惩罚 LR 为 0.786（D8.11）。
+**Comparison with definition C** (different cohorts, prediction times and candidate variables; unpaired, descriptive only): the nested-CV AUROC of the L2 LR selected for CLIN is 0.801, and that of the unpenalised LR recommended for definition C is 0.786 (D8.11).
 
-**下一步**：对 L2 LR 和调参 RF 运行 D8.3、D8.4 修订预设的两项敏感性分析（04f `--variant prior_only`、`--variant no_wbc_diff`），然后冻结模型、在留出集上做一次确认性评估。
+**Next step**: run the two sensitivity analyses pre-specified in the D8.3 and D8.4 revisions for L2 LR and the tuned RF (04f `--variant prior_only`, `--variant no_wbc_diff`), then freeze the model and do one confirmatory evaluation on the held-out set.
 
-**冻结（2026-10-04，8e-4 第 1 步，尚未读取留出集）**：
-- 冻结规格 `results/clinical/frozen_model_clin.json`：完整规定最终模型的拟合流程（训练集 2,045 人上做 20% 筛选（白细胞分类豁免）→ 插补 → 标准化 → LASSO 内层 10 折 seed 42、λ.1se → LR（L2）内层分层 5 折 GridSearchCV 选 C，对照调参 RF 同流程），阈值 LR 0.2578、RF 0.2414（嵌套 CV 合并 OOF Youden，5 次重复中位数），并记录训练集 stay_id 哈希、候选矩阵哈希（与 04f 缓存 meta 一致）、src 代码哈希和基准 commit ce548d3。
-- `scripts/04h_final_clin.py` 按规格拟合，模型存于 `data/interim/final_clin/final_clin.pkl`（git 忽略），拟合记录 `results/clinical/final_model_clin.json`（含模型文件 sha256，供 04i 核对）。
-- 结果：LASSO λ.1se = 0.0168，20% 规则未剔除变量，入选 22 个（处于嵌套 CV 各折 13–23 的上端）：age、gender_male、obesity、aniongap_min、bun_min、rdw_mean、monocytes_mean、calcium_min、chloride_max、ptt_min、pt_min、resp_rate_mean、sapsii、apsiii、lods、oasis、cci、nlr、plr、lmr、sii、wbc_diff_missing。LR（L2）C = 0.01（与嵌套 CV 50/50 折一致）；调参 RF：max_depth 10、max_features 2、min_samples_leaf 20。事件 544，EPV = 24.7（事件数 / 入选变量数），事件数 / 候选变量数 = 9.7。
-- **顺序调整（用户决定）**：上文"下一步"写的是先跑两项敏感性分析再冻结。实际改为先冻结、做留出集确认性评估，再跑敏感性分析。两项敏感性分析按 D8.3、D8.4 修订只针对已选模型与调参 RF，不参与模型选择，也不改变冻结模型，因此顺序不影响确认性评估。
+**Freezing (2026-10-04, 8e-4 step 1, held-out set not yet read)**:
+- Frozen specification `results/clinical/frozen_model_clin.json`: fully specifies the fitting procedure of the final model (on the 2,045-patient training set: 20% screening (white-cell differential exempt) → imputation → standardisation → LASSO inner 10-fold seed 42, λ.1se → LR (L2) inner stratified 5-fold GridSearchCV to choose C; the comparator tuned RF uses the same procedure), thresholds LR 0.2578 and RF 0.2414 (pooled OOF Youden in nested CV, median over 5 repeats), and records the hash of the training-set stay_ids, the hash of the candidate matrix (matching the 04f cache meta), the hashes of the src code and the base commit ce548d3.
+- `scripts/04h_final_clin.py` fits the model according to the specification; the model is saved in `data/interim/final_clin/final_clin.pkl` (git-ignored), and the fit record in `results/clinical/final_model_clin.json` (including the sha256 of the model file, for 04i to check).
+- Result: LASSO λ.1se = 0.0168, the 20% rule dropped no variable, 22 selected (at the upper end of the 13–23 range across nested-CV folds): age, gender_male, obesity, aniongap_min, bun_min, rdw_mean, monocytes_mean, calcium_min, chloride_max, ptt_min, pt_min, resp_rate_mean, sapsii, apsiii, lods, oasis, cci, nlr, plr, lmr, sii, wbc_diff_missing. LR (L2) C = 0.01 (consistent with the 50/50 nested-CV folds); tuned RF: max_depth 10, max_features 2, min_samples_leaf 20. 544 events, EPV = 24.7 (events / selected variables), events / candidate variables = 9.7.
+- **Change of order (user decision)**: the "Next step" above said to run the two sensitivity analyses first and then freeze. In practice the model was frozen first and the confirmatory held-out evaluation done, and then the sensitivity analyses were run. Per the D8.3 and D8.4 revisions, the two sensitivity analyses concern only the selected model and the tuned RF, do not take part in model selection and do not change the frozen model, so the order does not affect the confirmatory evaluation.
 
-### D8.15 8e-4 结果：CLIN 留出集确认性评估（2026-10-04，只运行一次）
+### D8.15 8e-4 results: confirmatory evaluation on the CLIN held-out set (2026-10-04, run only once)
 
-**流程**：
-- 冻结提交 0de268b（`frozen_model_clin.json`、`final_model_clin.json`、`04h_final_clin.py`）之后，用 `scripts/04i_holdout_clin.py` 在留出集（512 人，死亡 136 例，26.6%）上评估一次。日志 `results/logs/04i_holdout_clin.log`。输出 `results/clinical/holdout_clin.csv`、`holdout_dca_clin.csv`、`coefs_clin.csv`、`shap_clin.csv`。
-- **三道防线**（在读留出集之前检查）：
-  1. 冻结规格与拟合记录都已提交，且与 HEAD 无差异；
-  2. 模型文件的 sha256、规格哈希、训练集 stay_id 哈希、src 代码哈希、入选变量、超参数与估计器配置都与冻结文件一致，用模型包中的预处理参数重拟合 LR（L2）能复现其系数；
-  3. 任一输出文件已存在则拒绝运行（写出前再查一次）。
-- **运行前测试**：`--smoke` 模式走完全相同的代码路径，但评估集换成训练集中分层抽取的 512 人，不读留出集，输出写到临时目录，不打印指标。冒烟测试通过。另在 smoke 模式下验证了防线 1（改动冻结文件后拒绝运行，随后用 git 恢复）。正式运行只做了一次，没有报错。
+**Procedure**:
+- After the freeze commit 0de268b (`frozen_model_clin.json`, `final_model_clin.json`, `04h_final_clin.py`), `scripts/04i_holdout_clin.py` evaluated the model once on the held-out set (512 patients, 136 deaths, 26.6%). Log `results/logs/04i_holdout_clin.log`. Outputs `results/clinical/holdout_clin.csv`, `holdout_dca_clin.csv`, `coefs_clin.csv`, `shap_clin.csv`.
+- **Three safeguards** (checked before reading the held-out set):
+  1. The frozen specification and the fit record are both committed and do not differ from HEAD;
+  2. The sha256 of the model file, the specification hash, the training-set stay_id hash, the src code hashes, the selected variables, the hyperparameters and the estimator configuration all match the frozen files, and refitting LR (L2) with the preprocessing parameters in the model bundle reproduces its coefficients;
+  3. The script refuses to run if any output file already exists (checked again before writing).
+- **Pre-run test**: `--smoke` mode follows exactly the same code path, but the evaluation set is replaced by 512 patients drawn stratified from the training set; the held-out set is not read, outputs go to a temporary directory and no metrics are printed. The smoke test passed. Safeguard 1 was also verified in smoke mode (it refused to run after the frozen file was modified, which was then restored with git). The formal run was done only once, without errors.
 
-| 指标 | LR（L2，推荐） | 调参 RF（对照） |
+| Metric | LR (L2, recommended) | Tuned RF (comparator) |
 |---|---|---|
-| AUROC（DeLong 95% CI） | 0.750（0.702–0.797） | 0.752（0.704–0.799） |
-| 配对 DeLong：LR − RF | −0.002（−0.021, 0.016），p = 0.83 | — |
-| AUPRC（bootstrap 95% CI）；阳性率基线 0.266 | 0.533（0.459–0.611） | 0.530（0.460–0.615） |
+| AUROC (DeLong 95% CI) | 0.750 (0.702–0.797) | 0.752 (0.704–0.799) |
+| Paired DeLong: LR − RF | −0.002 (−0.021, 0.016), p = 0.83 | — |
+| AUPRC (bootstrap 95% CI); positive-rate baseline 0.266 | 0.533 (0.459–0.611) | 0.530 (0.460–0.615) |
 | Brier / scaled Brier | 0.165 / 0.153 | 0.164 / 0.161 |
-| 校准截距 / 斜率 | 0.049 / 0.82 | 0.013 / 1.14 |
-| 阈值（冻结） | 0.2578 | 0.2414 |
+| Calibration intercept / slope | 0.049 / 0.82 | 0.013 / 1.14 |
+| Threshold (frozen) | 0.2578 | 0.2414 |
 | accuracy / precision / recall / F1 / specificity | 0.693 / 0.449 / 0.684 / 0.542 / 0.697 | 0.645 / 0.411 / 0.779 / 0.538 / 0.596 |
-| 判为高风险的比例 | 40.4% | 50.4% |
-| DCA（0.05–0.60）：净获益同时高于 treat-all 和 0 | 53/56 个阈值（0.08–0.60） | 55/56 个阈值（0.06–0.60） |
+| Proportion classified high risk | 40.4% | 50.4% |
+| DCA (0.05–0.60): net benefit above both treat-all and 0 | 53/56 thresholds (0.08–0.60) | 55/56 thresholds (0.06–0.60) |
 
-- 最终模型：训练集 2,045 人，事件 544；候选 56 个，入选 22 个；EPV 24.7，事件数 / 候选变量数 9.7（同冻结记录）。
+- Final model: training set of 2,045 patients, 544 events; 56 candidates, 22 selected; EPV 24.7, events / candidate variables 9.7 (same as the freeze record).
 
-**解释（同 D4.16；`coefs_clin.csv`）**：
-- LR（L2，C = 0.01）的惩罚后 OR（每 SD），按 |系数| 排序：rdw_mean 1.47、cci 1.34、age 1.31、apsiii 1.22、chloride_max 0.85、obesity 0.85、oasis 1.16、resp_rate_mean 1.15、sapsii 1.14、pt_min 1.13 等。
-- 同一组 22 个变量上的无惩罚 LR（statsmodels GLM，训练集）：rdw_mean OR 1.67（1.47–1.89）、age 1.50（1.30–1.75）、cci 1.44（1.27–1.63）、apsiii 1.38（1.14–1.68）、obesity 0.80（0.71–0.91）、chloride_max 0.83（0.73–0.94）、oasis 1.23（1.04–1.46）、resp_rate_mean 1.20（1.06–1.34）、calcium_min 1.16（1.02–1.32）、wbc_diff_missing 1.15（1.02–1.29）、gender_male 1.14（1.01–1.28），均 p < 0.05。sapsii（OR 1.02，p = 0.90）、lods、nlr、sii 等在其余评分/比值固定时不显著。VIF 最大为 sapsii 4.74、sii 4.00、nlr 3.56，均 < 5。
-- obesity 的 OR < 1（"肥胖悖论"方向），chloride_max 的 OR < 1，与口径 C 的方向是否一致在 8f 报告中对照说明。
-- SHAP（LR（L2），留出集，LinearExplainer，对数优势尺度，训练集为背景）前 10：rdw_mean、cci、age、apsiii、obesity、chloride_max、oasis、resp_rate_mean、sapsii、wbc_diff_missing。前 3 名（RDW、CCI、年龄）与口径 C 推荐模型的 SHAP 前 3 名（rdw_mean、cci、age）相同。
+**Interpretation (as in D4.16; `coefs_clin.csv`)**:
+- Penalised ORs (per SD) of LR (L2, C = 0.01), ordered by |coefficient|: rdw_mean 1.47, cci 1.34, age 1.31, apsiii 1.22, chloride_max 0.85, obesity 0.85, oasis 1.16, resp_rate_mean 1.15, sapsii 1.14, pt_min 1.13, etc.
+- Unpenalised LR on the same 22 variables (statsmodels GLM, training set): rdw_mean OR 1.67 (1.47–1.89), age 1.50 (1.30–1.75), cci 1.44 (1.27–1.63), apsiii 1.38 (1.14–1.68), obesity 0.80 (0.71–0.91), chloride_max 0.83 (0.73–0.94), oasis 1.23 (1.04–1.46), resp_rate_mean 1.20 (1.06–1.34), calcium_min 1.16 (1.02–1.32), wbc_diff_missing 1.15 (1.02–1.29), gender_male 1.14 (1.01–1.28), all p < 0.05. sapsii (OR 1.02, p = 0.90), lods, nlr, sii etc. are not significant when the other scores/ratios are held fixed. The largest VIFs are sapsii 4.74, sii 4.00 and nlr 3.56, all < 5.
+- The OR of obesity is < 1 (the "obesity paradox" direction) and the OR of chloride_max is < 1; whether these directions agree with definition C is compared in the 8f report.
+- SHAP top 10 (LR (L2), held-out set, LinearExplainer, log-odds scale, training set as background): rdw_mean, cci, age, apsiii, obesity, chloride_max, oasis, resp_rate_mean, sapsii, wbc_diff_missing. The top 3 (RDW, CCI, age) are the same as the SHAP top 3 of the definition C recommended model (rdw_mean, cci, age).
 
-**留出集 AUROC 低于嵌套 CV 估计**（如实记录；以下核查都是事后的描述性分析，不改变冻结模型，也不改变确认性结果）：
-- 留出集 AUROC 比嵌套 CV 低约 0.05：LR（L2）0.801 → 0.750，调参 RF 0.797 → 0.752。两个模型同步下降，嵌套 CV 估计落在留出集 95% CI 的上端之外（LR 上限 0.797）。
-- **不像是过拟合**：冻结 LR 在训练集上的表观 AUROC 为 0.817，比嵌套 CV 只高 0.016；L2 强收缩（C = 0.01）。嵌套 CV 本身已包含变量选择与调参。
-- **抽样变异的量级**：从训练集嵌套 CV 合并 OOF 预测（LR（L2），5 次重复）中按留出集的构成（136 例死亡 / 376 例存活）有放回抽样 2,000 × 5 次，AUROC 均值 0.800、SD 0.022、2.5% 分位 0.756；≤ 0.750 的比例为 1.4%。该模拟未包含模型重拟合带来的变异，因此低估了总变异。留出集结果处于抽样分布的下尾，但并非不可能。
-- **分布差异**：22 个入选变量在训练集与留出集之间的标准化均值差最大 0.11（calcium_min），3 个 > 0.1（calcium_min、lods、rdw_mean）；没有明显的分布偏移。划分是分层随机的，不存在时间差异。
-- **结论写法**：CLIN 的确认性估计为留出集 AUROC 0.750（0.702–0.797）。报告同时给出嵌套 CV 0.801，说明两者的差距、上述核查，以及差距更可能来自 512 人留出集的抽样变异（下尾，约 1–2%）而非模型过拟合，但无法排除其他原因。不据此更换模型或重新评估。LR（L2）与调参 RF 在留出集上没有差异（p = 0.83），两者 AUPRC、Brier 相近；LR 的校准斜率 0.82（预测略偏极端），RF 为 1.14。
-- **待办**：两项预设敏感性分析（prior_only、no_wbc_diff；L2 LR + 调参 RF，嵌套 CV）；8f 报告重组。
+**Held-out AUROC lower than the nested-CV estimate** (recorded as is; the checks below are all post-hoc descriptive analyses that change neither the frozen model nor the confirmatory result):
+- The held-out AUROC is about 0.05 lower than nested CV: LR (L2) 0.801 → 0.750, tuned RF 0.797 → 0.752. Both models drop together, and the nested-CV estimate lies above the upper end of the held-out 95% CI (LR upper limit 0.797).
+- **Does not look like overfitting**: the apparent AUROC of the frozen LR on the training set is 0.817, only 0.016 higher than nested CV; L2 shrinkage is strong (C = 0.01). The nested CV itself already includes variable selection and tuning.
+- **Magnitude of sampling variation**: sampling with replacement from the training-set nested-CV pooled OOF predictions (LR (L2), 5 repeats) with the composition of the held-out set (136 deaths / 376 survivors), 2,000 × 5 times, gives a mean AUROC of 0.800, SD 0.022 and 2.5th percentile 0.756; the proportion ≤ 0.750 is 1.4%. This simulation does not include the variation from refitting the model and therefore underestimates the total variation. The held-out result lies in the lower tail of the sampling distribution but is not impossible.
+- **Distribution differences**: the largest standardised mean difference of the 22 selected variables between the training and held-out sets is 0.11 (calcium_min), with 3 > 0.1 (calcium_min, lods, rdw_mean); no clear distribution shift. The split is stratified random, so there is no temporal difference.
+- **How the conclusion is written**: the confirmatory estimate for CLIN is the held-out AUROC of 0.750 (0.702–0.797). The report also gives the nested CV value of 0.801 and explains the gap, the checks above, and that the gap more likely comes from sampling variation in the 512-patient held-out set (lower tail, about 1–2%) than from model overfitting, though other causes cannot be ruled out. The model is not changed or re-evaluated on this basis. LR (L2) and the tuned RF do not differ on the held-out set (p = 0.83), with similar AUPRC and Brier; the calibration slope is 0.82 for LR (predictions slightly too extreme) and 1.14 for RF.
+- **To do**: the two pre-specified sensitivity analyses (prior_only, no_wbc_diff; L2 LR + tuned RF, nested CV); 8f report reorganisation.
 
-### D8.16 8e 敏感性分析结果：CLIN prior_only 与 no_wbc_diff（2026-10-04）
+### D8.16 8e sensitivity analysis results: CLIN prior_only and no_wbc_diff (2026-10-04)
 
-**运行**：`04f_nested_full.py --track clinical --variant {prior_only, no_wbc_diff} --models tuned:LR,tuned:RF`，即 D8.14 所选的 LR（L2）与调参 RF。5 × 10 折，种子 42–46，外层划分与主分析相同。日志 `results/logs/04f_nested_full_clin_{prior_only,no_wbc_diff}.log`，输出 `results/clinical/nested_cv_full_*_clin_{prior_only,no_wbc_diff}.csv`。两项分析都在留出集评估（D8.15）之后运行，只用训练集，不影响冻结模型（顺序调整见 D8.14 冻结记录）。
-- 两项分析均无 0 变量折，校准拟合全部收敛。
-- prior_only：20% 规则未剔除变量。no_wbc_diff：每折都剔除白细胞分类的 8 个变量（缺失约 34%）。
-- ΔAUROC = 敏感性 − 主分析，在相同的 50 个外层划分上配对计算，Nadeau–Bengio 校正（r = 5，k = 10），来自 `nested_cv_full_vs_main_clin_*.csv`。AUPRC、Brier、校准斜率为每次重复合并 OOF 的值，取 5 次重复的均值。
+**Run**: `04f_nested_full.py --track clinical --variant {prior_only, no_wbc_diff} --models tuned:LR,tuned:RF`, i.e. the LR (L2) selected in D8.14 and the tuned RF. 5 × 10 folds, seeds 42–46, outer splits the same as the main analysis. Logs `results/logs/04f_nested_full_clin_{prior_only,no_wbc_diff}.log`, outputs `results/clinical/nested_cv_full_*_clin_{prior_only,no_wbc_diff}.csv`. Both analyses were run after the held-out evaluation (D8.15), use only the training set and do not affect the frozen model (for the change of order see the D8.14 freeze record).
+- Neither analysis had a zero-variable fold, and all calibration fits converged.
+- prior_only: the 20% rule dropped no variable. no_wbc_diff: every fold drops the 8 white-cell differential variables (about 34% missing).
+- ΔAUROC = sensitivity − main analysis, computed pairwise on the same 50 outer splits with the Nadeau–Bengio correction (r = 5, k = 10), from `nested_cv_full_vs_main_clin_*.csv`. AUPRC, Brier and calibration slope are the pooled OOF values per repeat, averaged over the 5 repeats.
 
-| 指标 | LR（L2）主分析 | LR（L2）prior_only | LR（L2）no_wbc_diff | 调参 RF 主分析 | 调参 RF prior_only | 调参 RF no_wbc_diff |
+| Metric | LR (L2) main analysis | LR (L2) prior_only | LR (L2) no_wbc_diff | Tuned RF main analysis | Tuned RF prior_only | Tuned RF no_wbc_diff |
 |---|---|---|---|---|---|---|
-| AUROC（折均值 ± SD） | 0.801 ± 0.026 | 0.787 ± 0.029 | 0.802 ± 0.027 | 0.797 ± 0.028 | 0.789 ± 0.030 | 0.795 ± 0.029 |
-| ΔAUROC（95% CI） | — | −0.014（−0.023, −0.005） | +0.001（−0.005, 0.007） | — | −0.008（−0.016, −0.0001） | −0.002（−0.010, 0.005） |
-| AUPRC（合并 OOF） | 0.594 | 0.574 | 0.603 | 0.591 | 0.582 | 0.589 |
-| Brier（合并 OOF） | 0.151 | 0.155 | 0.150 | 0.155 | 0.156 | 0.155 |
-| 校准斜率（合并 OOF） | 1.108 | 1.076 | 1.113 | 1.465 | 1.372 | 1.431 |
-| LASSO 入选变量数（中位数，范围） | 17（13–23） | 16（10–22） | 13（12–18） | 同左 | 同左 | 同左 |
+| AUROC (fold mean ± SD) | 0.801 ± 0.026 | 0.787 ± 0.029 | 0.802 ± 0.027 | 0.797 ± 0.028 | 0.789 ± 0.030 | 0.795 ± 0.029 |
+| ΔAUROC (95% CI) | — | −0.014 (−0.023, −0.005) | +0.001 (−0.005, 0.007) | — | −0.008 (−0.016, −0.0001) | −0.002 (−0.010, 0.005) |
+| AUPRC (pooled OOF) | 0.594 | 0.574 | 0.603 | 0.591 | 0.582 | 0.589 |
+| Brier (pooled OOF) | 0.151 | 0.155 | 0.150 | 0.155 | 0.156 | 0.155 |
+| Calibration slope (pooled OOF) | 1.108 | 1.076 | 1.113 | 1.465 | 1.372 | 1.431 |
+| Number of LASSO-selected variables (median, range) | 17 (13–23) | 16 (10–22) | 13 (12–18) | same as left | same as left | same as left |
 
-（LASSO 每折只做一次、各模型共用，因此两个模型的入选变量数相同。）
+(LASSO is run only once per fold and shared by all models, so the number of selected variables is the same for the two models.)
 
-**prior_only**（共病、不含年龄分的 CCI 和 SAPS-II 慢性病项都只用既往住院诊断；没有既往住院的患者共病记为 0；`has_prior_admission` 作为候选变量）：
-- 两个模型的区分度都小幅下降，CI 不跨 0：LR（L2）−0.014，RF −0.008（上界接近 0）。AUPRC 也下降（LR 0.594 → 0.574）。
-- **入选变化**：
-  - obesity 从 50/50 降到 4/50，是最大的变化。CLIN 主分析中的肥胖信息主要来自索引住院的编码。
-  - cci 从 50/50 降到 46/50；myocardial_infarct 从 0 升到 16/50；`has_prior_admission` 为 0/50。
-- **解读**：索引住院中的慢性病编码（去掉 D8.3 的急性编码后）对预测有一定贡献，只用既往住院会损失约 0.01 的 AUROC。主分析的做法（既往 ∪ 索引住院慢性病编码）在预测时点是否完全可得，依赖"慢性病编码代表入院前已存在的情况"这一假设（D8.3 局限性）。因此报告中应把 prior_only 作为更保守的部署情景给出：AUROC 约 0.787，仍与口径 C 推荐模型（0.786）相当。
-- 两种做法下，RDW、年龄、APS-III 都在每折入选，主要预测因子结论不变。
+**prior_only** (the comorbidities, the CCI without age points and the SAPS-II chronic-disease items all use prior-hospitalization diagnoses only; patients with no prior hospitalization have all comorbidities set to 0; `has_prior_admission` is a candidate variable):
+- The discrimination of both models drops slightly, with CIs not crossing 0: LR (L2) −0.014, RF −0.008 (upper bound close to 0). AUPRC also drops (LR 0.594 → 0.574).
+- **Changes in selection**:
+  - obesity drops from 50/50 to 4/50, the largest change. The obesity information in the CLIN main analysis comes mainly from index-hospitalization codes.
+  - cci drops from 50/50 to 46/50; myocardial_infarct rises from 0 to 16/50; `has_prior_admission` is 0/50.
+- **Interpretation**: chronic-disease codes in the index hospitalization (after removing the D8.3 acute codes) contribute somewhat to prediction, and using only prior hospitalizations loses about 0.01 AUROC. Whether the main-analysis approach (prior ∪ chronic-disease codes of the index hospitalization) is fully available at the prediction time depends on the assumption that "chronic-disease codes represent conditions that existed before admission" (D8.3 limitation). The report should therefore present prior_only as a more conservative deployment scenario: AUROC about 0.787, still comparable with the definition C recommended model (0.786).
+- Under both approaches RDW, age and APS-III are selected in every fold, so the conclusion about the main predictors is unchanged.
 
-**no_wbc_diff**（白细胞分类 8 个变量按 20% 规则在折内剔除，不使用 `wbc_diff_missing`，即 D8.4 方案 1）：
-- 区分度、AUPRC、Brier、校准基本不变：LR（L2）Δ +0.001，RF Δ −0.002，CI 均跨 0。入选变量数从 17 降到 13。
-- **解读**：白细胞分类变量（NLR、PLR、LMR、SII 等）及其缺失指示变量在 CLIN 中没有带来可检测的增量区分度。方案 2 的主要价值在于保留论文的关键变量；更简约的方案 1 性能相同。按预设，主分析和冻结模型不变，报告中把这一点写作"白细胞分类可省略而不损失性能"。
+**no_wbc_diff** (the 8 white-cell differential variables are dropped within folds under the 20% rule and `wbc_diff_missing` is not used, i.e. D8.4 option 1):
+- Discrimination, AUPRC, Brier and calibration are essentially unchanged: LR (L2) Δ +0.001, RF Δ −0.002, both CIs cross 0. The number of selected variables drops from 17 to 13.
+- **Interpretation**: the white-cell differential variables (NLR, PLR, LMR, SII etc.) and their missingness indicator bring no detectable incremental discrimination in CLIN. The main value of option 2 is that it keeps the paper's key variables; the more parsimonious option 1 performs the same. As pre-specified, the main analysis and the frozen model do not change, and the report states this as "the white-cell differential can be omitted without loss of performance".
 
-**Youden 阈值**（合并 OOF，5 次重复中位数）：prior_only 为 LR 0.253、RF 0.256；no_wbc_diff 为 LR 0.240、RF 0.249（主分析分别为 0.258、0.241）。
+**Youden thresholds** (pooled OOF, median over 5 repeats): prior_only LR 0.253, RF 0.256; no_wbc_diff LR 0.240, RF 0.249 (0.258 and 0.241 in the main analysis).
 
-### D8.17 8f：报告重组、CLIN 图表与 Table 1（2026-10-04）
+### D8.17 8f: report reorganisation, CLIN figures and Table 1 (2026-10-04)
 
-**为绘图再次读取留出集，结果逐项一致，未改变任何结论。**
-- `scripts/04j_plots_clin.py` 用冻结模型文件（`data/interim/final_clin/final_clin.pkl`，先按 04i 的防线 2 核对模型文件 sha256、规格哈希、入选变量）对 CLIN 留出集（512 人）重新预测，不重新拟合任何东西。预测只保存在 `data/interim/final_clin/holdout_pred_clin.parquet`。
-- 用与 04i 相同的代码重算 `holdout_clin.csv` 的全部 33 列和 `holdout_dca_clin.csv` 的 112 行，按写出时相同的 6 位小数取整后比较：差值全部为 0（规则为 < 1e-9，否则报错退出且不画图）。
-- 图：`figC1_roc_clin_holdout.png`（ROC）、`figC2_calibration_clin_holdout.png`（校准曲线，预测风险十分位）、`figC3_dca_clin_holdout.png`（DCA 0.05–0.60）、`figC4_calibration_clin_nested_oof.png`（训练集嵌套 CV 合并 OOF 校准，5 次重复，来自缓存，作对照）。
-- 同一脚本另输出 `results/clinical/holdout_gap_diagnostics_clin.csv`：D8.15 的三项事后描述性核查（训练集表观 AUROC 0.817；按留出集构成从 OOF 预测有放回抽样 10,000 次，均值 0.800、SD 0.021、2.5% 分位 0.755、≤ 0.750 的比例 1.4%；22 个入选变量的最大 |SMD| 0.11（calcium_min），3 个 > 0.1），代码与种子同 D8.15，数值与 D8.15 一致。这样报告中的这些数字也由结果表生成。
-- **更正**：D8.15 中留出集 LR (L2) AUROC 的 95% CI 上限原写作 0.798，实际值 0.797467，应为 **0.797**；配对 DeLong 差值的 CI 上限原写作 0.017，实际值 0.016467，应为 **0.016**（两处原值都来自 4 位小数打印结果的二次取整）。D8.15 与 progress.md 已改正；其余数值逐项核对无误。
+**The held-out set was read again for plotting; the results agree item by item and no conclusion changed.**
+- `scripts/04j_plots_clin.py` uses the frozen model file (`data/interim/final_clin/final_clin.pkl`, first checking the model-file sha256, specification hash and selected variables as in 04i safeguard 2) to predict the CLIN held-out set (512 patients) again, without refitting anything. The predictions are saved only in `data/interim/final_clin/holdout_pred_clin.parquet`.
+- With the same code as 04i, all 33 columns of `holdout_clin.csv` and the 112 rows of `holdout_dca_clin.csv` are recomputed and compared after rounding to the same 6 decimals as when written: all differences are 0 (the rule is < 1e-9, otherwise the script exits with an error and draws nothing).
+- Figures: `figC1_roc_clin_holdout.png` (ROC), `figC2_calibration_clin_holdout.png` (calibration curve, predicted-risk deciles), `figC3_dca_clin_holdout.png` (DCA 0.05–0.60), `figC4_calibration_clin_nested_oof.png` (training-set nested-CV pooled OOF calibration, 5 repeats, from the cache, as a comparison).
+- The same script also outputs `results/clinical/holdout_gap_diagnostics_clin.csv`: the three post-hoc descriptive checks of D8.15 (apparent training AUROC 0.817; 10,000 samples with replacement from the OOF predictions with the held-out composition, mean 0.800, SD 0.021, 2.5th percentile 0.755, proportion ≤ 0.750 1.4%; maximum |SMD| of the 22 selected variables 0.11 (calcium_min), 3 > 0.1), with the same code and seeds as D8.15 and values consistent with D8.15. This way these numbers in the report are also generated from result tables.
+- **Correction**: in D8.15 the upper limit of the 95% CI of the held-out LR (L2) AUROC was originally written as 0.798; the actual value is 0.797467, so it should be **0.797**; the upper limit of the CI of the paired DeLong difference was originally written as 0.017; the actual value is 0.016467, so it should be **0.016** (both original values came from double rounding of a 4-decimal printout). D8.15 and progress.md have been corrected; all other values were checked item by item and are correct.
 
-**CLIN Table 1**（`scripts/03c_table1_clin.py`，描述性）：
-- 全队列 2,557 人（存活 1,877、死亡 680）按 1 年结局分组，用插补前的观测值，规则同 D3.5、D3.6；变量为 55 个 CLIN 预测变量、`wbc_diff_missing`、`has_prior_admission`。输出 `results/clinical/table1_clin.csv`，p < 0.05 的变量 42 个。
-- `wbc_diff_missing` 与 1 年死亡率（`wbc_diff_missing_mortality_clin.csv`）：= 1 组 28.6%（250/873），= 0 组 25.5%（430/1,684），χ² p = 0.092。
-- 肥胖编码来源（`obesity_source_clin.csv`）：只在索引住院编码肥胖的 416 人死亡率 18.8%；既往住院有肥胖编码的 443 人 26.4%；无肥胖编码的 1,698 人 28.6%。用于报告 17.3 第 14 条"肥胖编码可能存在与病情相关的偏倚"的讨论（措辞为"提示"）。
+**CLIN Table 1** (`scripts/03c_table1_clin.py`, descriptive):
+- The whole cohort of 2,557 patients (1,877 survivors, 680 deaths) grouped by one-year outcome, using observed values before imputation, with the same rules as D3.5 and D3.6; variables are the 55 CLIN predictors, `wbc_diff_missing` and `has_prior_admission`. Output `results/clinical/table1_clin.csv`; 42 variables have p < 0.05.
+- `wbc_diff_missing` and one-year mortality (`wbc_diff_missing_mortality_clin.csv`): 28.6% (250/873) in the = 1 group, 25.5% (430/1,684) in the = 0 group, χ² p = 0.092.
+- Source of obesity codes (`obesity_source_clin.csv`): the 416 patients with obesity coded only in the index hospitalization have a mortality of 18.8%; the 443 with an obesity code in a prior hospitalization 26.4%; the 1,698 with no obesity code 28.6%. Used for the discussion in report 17.3 item 14 that "obesity coding may be subject to illness-related bias" (worded as "suggests").
 
-**报告重组**（D8.9 及其修订，用户 2026-10-04 确认的提纲）：
-- 结构：第 0–1 节（结论速览；数据、工具与研究设计）；第一部分论文复现（口径 C，第 2–9 节）；第二部分 CLIN（第 10–14 节）；第三部分与论文比较、局限性、后续工作（第 15–18 节）；附录 A（阶段 4–7 单次验证集的详细表格，附 CSV 链接）、附录 B（文件清单）。
-- 口径 C 主要性能改为完整嵌套 CV（D8.11）；0.803 只作为留出集次要估计并注明参与过事后选择（D8.12）；推荐理由只写简约、可解释、EPV，校准写"两种 LR 相当"；D8.8 对口径 C 不是盲态的，这一点写入第 1、6.2、17.2 节。
-- 按 D8.1/D8.7 修订，口径 A/B/D 只列流程与死亡率，删除"口径选择不改变结论"，写"本研究采用口径 C"。`plans/stage8_prompt.md` 8f 中"口径 A 与口径 C 并列"一句按该修订不再执行。
-- 保留在正文的阶段 4–7 内容：事后选择过程（D4.15，6.2）、高血压两种定义对比表（3.3）、单位混杂诊断表（3.2）、RF 训练集 AUC 0.999 的过拟合解释与过拟合表（6.5）；其余详细表格（AUC、配对 DeLong、阈值、校准、"仅 LASSO 嵌套"CV）移到附录 A。
-- CBC 一条（17.2 第 8 条）按用户要求改写：不用惩罚后 OR 推断，改为 `wbc_diff_missing` 两组 1 年死亡率的描述性比较，引用 `coefs_clin.csv` 中无惩罚模型的 OR 1.15（1.02–1.29），注明该变量只在 13/50 折入选，措辞为"提示"。
-- 后续工作：删除 eICU 外部验证，改为按 anchor_year_group 的时间外推验证与寻找有一年随访的外部数据；"重复嵌套 CV"已完成，删除；原"CBC 缺失敏感性分析"一条已由 CLIN 覆盖，删除。
-- `05_report.py` 从 `results/replication/`、`results/clinical/` 读取结果，按 D8.8 在报告生成时重新执行模型选择并断言结果（口径 C 为无惩罚 LR，CLIN 为 L2 LR），条件不成立时报告生成失败；正文中涉及阶段 8 的数字都由结果表计算。
-- **补充修改（2026-10-04，用户审阅报告后提出）**：
-  - 第 13 节系数表新增"无惩罚 LR OR（有 vs 无，95% CI）"列：二分类变量的 OR = exp(β_per_SD / SD)，CI 同样换算；连续变量为"—"。正文中引用的二分类 OR 改用"有 vs 无"：obesity 0.63（0.49–0.81），wbc_diff_missing 1.33（1.04–1.71），gender_male 1.31（1.03–1.66）。
-  - 6.3 节改为"与嵌套 CV 估计相差 ≤ 0.017（LR 0.803 vs 0.786，RF 0.793 vs 0.788）"。
-  - 6.1 节说明：阶段 7 只有 1 次重复（种子 42），完整嵌套 CV 中种子 42 那一次重复为无惩罚 LR 0.781、调参 RF 0.786，与阶段 7 一致；无惩罚 LR 在 5 次重复间为 0.781–0.792，0.781 → 0.786 的差异主要来自重复间的变动。
-  - 报告标题改为"复现与临床改良报告：……1 年死亡风险机器学习预测"（英文同步）。
+**Report reorganisation** (D8.9 and its revisions, outline confirmed by the user on 2026-10-04):
+- Structure: Sections 0–1 (summary of conclusions; data, tools and study design); Part I replication of the paper (definition C, Sections 2–9); Part II CLIN (Sections 10–14); Part III comparison with the paper, limitations, future work (Sections 15–18); Appendix A (detailed tables from the single validation set of stages 4–7, with CSV links), Appendix B (file list).
+- The main performance of definition C becomes the full nested CV (D8.11); 0.803 is only the secondary held-out estimate, noted as having taken part in post-hoc selection (D8.12); the justification of the recommendation covers only parsimony, interpretability and EPV, and calibration is described as "the two LRs are similar"; that D8.8 is not blinded for definition C is stated in Sections 1, 6.2 and 17.2.
+- Per the D8.1/D8.7 revisions, definitions A/B/D list only the flow and mortality, "the choice of definition does not change the conclusions" is removed, and the report says "this study uses definition C". The sentence "definitions A and C side by side" in 8f of `plans/stage8_prompt.md` is no longer carried out, per that revision.
+- Stage 4–7 content kept in the main text: the post-hoc selection process (D4.15, 6.2), the comparison table of the two hypertension definitions (3.3), the unit-mixing diagnostic table (3.2), and the overfitting explanation of the RF training AUC of 0.999 with the overfitting table (6.5); the other detailed tables (AUC, paired DeLong, thresholds, calibration, "LASSO-only nested" CV) move to Appendix A.
+- The CBC item (17.2 item 8) is rewritten as requested by the user: no inference from penalised ORs; instead a descriptive comparison of one-year mortality between the two `wbc_diff_missing` groups, citing the unpenalised-model OR of 1.15 (1.02–1.29) from `coefs_clin.csv`, noting that the variable is selected in only 13/50 folds, worded as "suggests".
+- Future work: external validation in eICU is removed and replaced by temporal validation by anchor_year_group and a search for external data with one-year follow-up; "repeated nested CV" is done and removed; the original "CBC missingness sensitivity analysis" item is covered by CLIN and removed.
+- `05_report.py` reads the results from `results/replication/` and `results/clinical/`, re-applies the D8.8 model selection when generating the report and asserts the result (unpenalised LR for definition C, L2 LR for CLIN); report generation fails if the condition does not hold. All stage-8 numbers in the text are computed from result tables.
+- **Further changes (2026-10-04, proposed by the user after reviewing the report)**:
+  - The coefficient table in Section 13 gets a new column "unpenalised LR OR (yes vs no, 95% CI)": for binary variables OR = exp(β_per_SD / SD), with the CI converted the same way; "—" for continuous variables. The binary ORs cited in the text now use "yes vs no": obesity 0.63 (0.49–0.81), wbc_diff_missing 1.33 (1.04–1.71), gender_male 1.31 (1.03–1.66).
+  - Section 6.3 becomes "differs from the nested-CV estimate by ≤ 0.017 (LR 0.803 vs 0.786, RF 0.793 vs 0.788)".
+  - Section 6.1 explains: stage 7 had only 1 repeat (seed 42); in the full nested CV the seed-42 repeat gives unpenalised LR 0.781 and tuned RF 0.786, consistent with stage 7; unpenalised LR ranges 0.781–0.792 across the 5 repeats, so the 0.781 → 0.786 difference comes mainly from variation between repeats.
+  - The report title becomes "Replication and clinical-improvement report: ... machine-learning prediction of one-year mortality risk" (English version updated to match).
 
-### D8.18 事后补充：CLIN 留出集校准截距与斜率的 95% CI（2026-10-23，评审要求）
+### D8.18 Post-hoc addition: 95% CIs for the calibration intercept and slope on the CLIN held-out set (2026-10-23, reviewer request)
 
-- 事后描述性分析（`scripts/04l_calibration_ci_clin.py` → `results/clinical/holdout_calibration_ci_clin.csv`）。冻结模型、`holdout_clin.csv` 等确认性结果不变，04i 不重跑；加载模型与重建留出集预测的代码与 04i 相同（guard 1/2、`prep()`、LR 重拟合一致性检查），去掉"输出已存在则拒绝"的 guard 3。点估计与 `holdout_clin.csv` 一致（容差 1e-6）。
-- 区间：Wald（斜率：logit(p) 对 y 的 GLM；截距：offset logit(p) 的仅常数 GLM）与分层 bootstrap（2,000 次，种子 42，事件/非事件分别重抽，只重抽预测，未收敛跳过并计数）。检验：斜率 = 1、截距 = 0 的双侧 Wald 检验。
-- 截距以 Wald 区间为准：分层 bootstrap 固定事件数，不含结局率的抽样变异，会低估截距（calibration-in-the-large）的不确定性；保留它是为与 AUPRC 的 bootstrap 方法一致。
-- 结果：LR (L2) 斜率 0.82（Wald 0.62–1.03，p = 0.09），截距 +0.049（Wald −0.171 至 +0.270，p = 0.66）；RF 斜率 1.14（0.86–1.42，p = 0.32）。两项偏离都与完美校准无统计学差异；"部署前需再校准"的建议不变（理由是跨样本不稳定，而不是单个点估计）。
-- 报告：`05_report.py` 与英文模板增加 `calci_text()`（文件存在时插入 12.5 节）；因英文第四部分为手工拼接，本次未重跑 05_report，而是把同一函数渲染的文字插入 `report.md` / `report_en.md`。
+- Post-hoc descriptive analysis (`scripts/04l_calibration_ci_clin.py` → `results/clinical/holdout_calibration_ci_clin.csv`). The frozen model and the confirmatory results such as `holdout_clin.csv` are unchanged and 04i is not rerun; the code that loads the model and rebuilds the held-out predictions is the same as 04i (guards 1/2, `prep()`, the LR refit consistency check), with guard 3 ("refuse if outputs exist") removed. Point estimates agree with `holdout_clin.csv` (tolerance 1e-6).
+- Intervals: Wald (slope: GLM of y on logit(p); intercept: constant-only GLM with offset logit(p)) and stratified bootstrap (2,000 replicates, seed 42, events/non-events resampled separately, only the predictions resampled, non-converged replicates skipped and counted). Tests: two-sided Wald tests of slope = 1 and intercept = 0.
+- For the intercept the Wald interval is the reference: the stratified bootstrap fixes the number of events, so it excludes sampling variation in the outcome rate and underestimates the uncertainty of the intercept (calibration-in-the-large); it is kept for consistency with the bootstrap method used for AUPRC.
+- Results: LR (L2) slope 0.82 (Wald 0.62–1.03, p = 0.09), intercept +0.049 (Wald −0.171 to +0.270, p = 0.66); RF slope 1.14 (0.86–1.42, p = 0.32). Neither deviation differs statistically from perfect calibration; the recommendation to "recalibrate before deployment" is unchanged (the reason is instability across samples, not a single point estimate).
+- Report: `05_report.py` and the English template get `calci_text()` (inserted into Section 12.5 when the file exists); because the English Part IV is spliced by hand, 05_report was not rerun this time; instead the text rendered by the same function was inserted into `report.md` / `report_en.md`.

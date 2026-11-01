@@ -11,5 +11,5 @@
     "lasso": "65219c1b6bf353d711b32eddd41e9de0e76c6a263e839f9a3e5f9024c08be191",
     "variables": "c8af49625983214bf35f440180837a016a5a2274cdd7f1b6db07e31dfaa9b4c9"
   },
-  "note": "原预测复制到新签名；旧代码与数据目录保留。预处理的 joblib 缓存可按相同输入复用。"
+  "note": "source predictions copied to the new signature; old code and data directories kept. The preprocessing joblib cache can be reused for identical inputs."
 }
