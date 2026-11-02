@@ -120,7 +120,7 @@ git diff --stat -- results/ ':!results/logs'       # aggregate results: there sh
 
 ## 7. Extension experiments (stacking, first-day temporal trajectories, prior-diagnosis embedding; exploratory)
 
-The extension code is in `extensions/`; the version finally adopted is `extensions/balanced/` (fixed parameters, 5 × 10 outer folds, using only the CLIN development set of 2,045 patients and never reading the held-out labels). The result snapshot is in `results/extensions/balanced_27464ba98305edbc/`, and the report is Part IV of `results/report_en.md` (§19–25, Appendix C). The strict version (re-tuning within every stacking inner fold) completed only 6 folds and was not finished; its experiment code is not in the repository and its results are not in the report.
+The extension code is in `extensions/`; the version finally adopted is `extensions/balanced/` (fixed parameters, 5 × 10 outer folds, using only the CLIN development set of 2,045 patients and never reading held-out labels during that original development-CV run). The result snapshot is in `results/extensions/balanced_27464ba98305edbc/`, and the report is Part IV of `results/report_en.md` (§19–25, Appendix C). The strict version (re-tuning within every stacking inner fold) completed only 6 folds and was not finished; its experiment code is not in the repository and its results are not in the report.
 
 - **Dependencies**: the extensions read this project's `src/` (variables, LASSO, metric functions) and the stage-8 outputs `data/processed/{cohort_clin,features_clin,split_clin}.parquet`; feature preparation also queries `data/interim/mimic_subset.duckdb`. Section 3 must therefore be completed first (at least up to the CLIN features and split).
 - **Locating the V3 project**: `extensions/run_extensions.sh` and `extensions/balanced/run_extensions.sh` automatically set the environment variable `BMI5101_V3_ROOT` to the repository root and use the `dn_repro` environment (can be overridden with `BMI5101_CONDA_ENV` and `BMI5101_CONDA_BASE`). When running extension scripts directly with `python`, first `export BMI5101_V3_ROOT=$(pwd)` (repository root). Keep the original value of `source_project` in `config.yaml` and do not change it: it is part of the result signature, and changing it makes the signature disagree with the published `27464ba98305edbc`.
@@ -135,3 +135,30 @@ bash extensions/balanced/run_extensions.sh full --experiments static_lr,static_r
 - Without `--experiments` only the 8 groups in the configuration are run; the full design in the report is the 14 groups above and takes several hours. Do not use `--reuse-from` in a new environment (the per-fold cache is not in the repository).
 - New runs are written to `extensions/balanced/results/full/<signature>/`. A different machine, operating system or software version may give a different signature and different last digits; the report cites the hash-checked snapshot `results/extensions/balanced_27464ba98305edbc/`, which is not replaced automatically by new runs.
 - Wiring check with synthetic data only: `BMI5101_V3_ROOT=$(pwd) conda run -n dn_repro python extensions/balanced/tests/test_tree_ablations.py`.
+
+
+## Supplementary validation added after development CV
+
+The original Part IV development analysis did not read holdout labels. The following later evaluations are separate; retain all three views rather than substituting the highest score:
+
+| Evaluation | Static LR AUROC | Static stacking AUROC | Combined stacking AUROC |
+|---|---:|---:|---:|
+| Development 5x10-fold CV, fixed-parameter recipe | 0.7993 | 0.8047 | 0.8048 |
+| Previously inspected original holdout, 512 patients | 0.7533 | 0.7559 | 0.7556 |
+| Five exploratory repeated 80/20 holdouts, mean | 0.7949 | 0.7983 | 0.8005 |
+
+Repeated-split SDs are 0.0166, 0.0130 and 0.0142, not CIs. Static stacking has small directional gains, but all approximate corrected paired AUROC/AUPRC/Brier difference intervals include zero. Added trajectories/diagnosis representation show no stable incremental gain. The original holdout has already been inspected; the merged repeated-split analysis is exploratory, not new blind/external confirmation.
+
+English supplementary reports and provenance: [original holdout](extensions/balanced/results/holdout/6f7b96b948977755/report.md), [five splits](extensions/balanced/results/repeated_holdout/d6f09e8dedcfbfc1/report.md), [paired intervals](extensions/balanced/results/repeated_holdout/d6f09e8dedcfbfc1/paired_corrected_ci.md). Interactive readers: [Notebook 07](extensions/balanced/notebooks/07_holdout_evaluation.ipynb), [Notebook 08](extensions/balanced/notebooks/08_repeated_holdout.ipynb). These additions do not alter the existing manuscript or baseline report generator.
+
+```bash
+bash extensions/balanced/run_extensions.sh holdout --check-only
+bash extensions/balanced/run_extensions.sh holdout --run
+bash extensions/balanced/run_extensions.sh repeated-holdout --check-only
+bash extensions/balanced/run_extensions.sh repeated-holdout --run
+bash extensions/balanced/run_extensions.sh paired-ci
+```
+
+Real patient fitting requires your own authorized MIMIC features/database; it never starts by default. `paired-ci` and synthetic tests need no patient data. Wrappers preserve the existing `dn_repro` environment default and `BMI5101_CONDA_ENV` override. Existing recipe settings and baseline training code are unchanged. New result archives contain only aggregates; historical run signatures are preserved, while translated/relocated reruns create new signatures. See the workflow READMEs for exact source-compatibility checks and resume behavior.
+
+For the new data-free checks, additionally run the two holdout test scripts with `BMI5101_V3_ROOT=$(pwd)` as shown in their READMEs. Do not rerun old CV to reproduce the archived paired CI table.

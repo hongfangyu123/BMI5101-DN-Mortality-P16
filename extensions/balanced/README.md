@@ -107,3 +107,20 @@ If parameters, training algorithm, data or environment do not match, the program
 After the run finishes, the results are written to a new `results/full/<signature>/`, and the results and conclusions of notebooks 03, 04 and 06 are updated automatically.
 Notebook 06 holds the method explanation and the run switch for this run; by default it does not start training.
 Note: the updated Holm p-values refer to the current comparison family; the manual records in the old notebooks are the historical results of that time.
+
+
+## Supplementary holdout workflows
+
+Later evaluations are independent additions, not replacements for the original development CV above. See [original holdout](holdout/README.md), [five repeated holdouts and CIs](repeated_holdout/README.md), and Notebooks [07](notebooks/07_holdout_evaluation.ipynb) / [08](notebooks/08_repeated_holdout.ipynb). All new workflow text is English; patient-level data, predictions and checkpoints remain private. The original numeric archives and the pre-existing training/configuration files are unchanged.
+
+From the repository root:
+
+```bash
+bash extensions/balanced/run_extensions.sh holdout --check-only
+bash extensions/balanced/run_extensions.sh holdout --run
+bash extensions/balanced/run_extensions.sh repeated-holdout --check-only
+bash extensions/balanced/run_extensions.sh repeated-holdout --run
+bash extensions/balanced/run_extensions.sh paired-ci
+```
+
+Omitting `--run` checks only. Approximate corrected intervals can be reproduced directly from the published five-split aggregate archive without patient data or fitting. Existing `dn_repro` environment defaults and override variables are preserved. Reruns use new signatures rather than relabeling the original archived results. No changes are made to the manuscript or slides.
