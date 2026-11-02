@@ -1,0 +1,91 @@
+{
+  "archive_kind": "repeated_holdout",
+  "original_run_signature": "d6f09e8dedcfbfc1",
+  "n_patients": 2557,
+  "n_events": 680,
+  "n_development": 2045,
+  "n_original_holdout": 512,
+  "model_seed": 42,
+  "split_seeds": [
+    101,
+    102,
+    103,
+    104,
+    105
+  ],
+  "complete": true,
+  "n_completed_splits": 5,
+  "original_protocol_sha256": "67a05a703ead86f846598ef9ae6595296cf55aa8520f2fff96a0e31dc531e327",
+  "original_run_identity_sha256": "ca92ac5518e21f15883b3c64187810cf050cb61c02edf0bde3da42433efda5da",
+  "original_source_code_sha256": "fe1d0da69caf22eb8919e2da4ffa5ee3ff79feba915abebb52c779e556c5f89c",
+  "options": {
+    "source_project": "../../dn_mortality_repro_V3/dn_mortality_repro",
+    "seeds": [
+      42,
+      43,
+      44,
+      45,
+      46
+    ],
+    "outer_folds": 10,
+    "inner_lasso_folds": 5,
+    "lasso_lambdas": 30,
+    "stack_folds": 3,
+    "jobs": 2,
+    "missing_threshold": 0.2,
+    "embedding_components": 32,
+    "embedding_min_df": 10,
+    "fixed_parameters": {
+      "LR": {
+        "C": 1.0
+      },
+      "RF": {
+        "n_estimators": 200,
+        "max_depth": 10,
+        "min_samples_leaf": 10,
+        "max_features": "sqrt"
+      },
+      "XGBoost": {
+        "n_estimators": 100,
+        "max_depth": 2,
+        "learning_rate": 0.1,
+        "subsample": 0.8,
+        "colsample_bytree": 0.6
+      }
+    },
+    "experiments": [
+      "static_lr",
+      "static_rf",
+      "static_xgb",
+      "static_stacking",
+      "temporal_lr",
+      "burden_lr",
+      "embedding_lr",
+      "combined_stacking"
+    ],
+    "profile": "full",
+    "method": "balanced_fixed_parameters",
+    "hyperparameter_tuning": false
+  },
+  "software_versions": {
+    "numpy": "2.4.6",
+    "pandas": "3.0.6",
+    "scipy": "1.17.1",
+    "scikit-learn": "1.9.1",
+    "xgboost": "3.4.2",
+    "duckdb": "1.5.6",
+    "joblib": "1.6.0"
+  },
+  "aggregate_file_sha256": {
+    "dca_by_split.csv": "a906da69f93ff00f9af417463b8e78146832839d79796fd7b11271f03e18a4fb",
+    "paired_corrected_ci.csv": "0373f39aa45b02ac96261f9ecf55a23aa8612a4335b0922784c1a2a20342e2b4",
+    "paired_differences_by_split.csv": "88dff6228e434ab48a80dda0ee493546532d4547861abf6fe502190ec97fb217",
+    "paired_summary.csv": "0473505dcd48e94ff8da722212c17d40edff8456a3e1f8d73cb68ee6466ac227",
+    "split_metrics.csv": "3ad6e68c78e21fa3a08090517371fcce1d1b06d8dcf712459df950a6f0bd3232",
+    "summary.csv": "233c0cc56aa15cbc93597577410a8b60a321c9f66bf2c27dbbba93bb209354f1",
+    "temporal_cv_selection_frequency.csv": "bf636a0a13dfa2fff5baaf61b36a2c3a36039957426a1a357d94e68f3d8ab8b0",
+    "temporal_selected_features.csv": "f912fdcde22ded13f9e3ccfbd41dd984f73c2f996a4f4f6d610173540e96f1bd",
+    "temporal_selection_audit.csv": "fef4bf479fba97d7c9fa8d3c49d3d496145fbaa729f9f105908d63fedb380087"
+  },
+  "note": "Aggregate-only archived results from the original evaluated implementation. English/relocated reruns use a new code/run signature; do not relabel historical results as a new run. No patient rows or predictions are published."
+}

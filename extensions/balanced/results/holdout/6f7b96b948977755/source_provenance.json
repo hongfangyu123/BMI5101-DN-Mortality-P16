@@ -1,0 +1,81 @@
+{
+  "archive_kind": "holdout",
+  "original_run_signature": "6f7b96b948977755",
+  "n_patients": 2557,
+  "n_events": 680,
+  "n_development": 2045,
+  "n_original_holdout": 512,
+  "model_seed": 42,
+  "split_seeds": [
+    42
+  ],
+  "complete": true,
+  "n_completed_splits": 1,
+  "original_protocol_sha256": "17006c18ab23062d6b6fc0954070ec8ac1a61a967d85fce3e35627dfc8e8b654",
+  "original_run_identity_sha256": "6ffebc12bab3b569538576555e1b9346db8e6529992e792ae0542eb52f900b64",
+  "original_source_code_sha256": "fe1d0da69caf22eb8919e2da4ffa5ee3ff79feba915abebb52c779e556c5f89c",
+  "options": {
+    "source_project": "../../dn_mortality_repro_V3/dn_mortality_repro",
+    "seeds": [
+      42,
+      43,
+      44,
+      45,
+      46
+    ],
+    "outer_folds": 10,
+    "inner_lasso_folds": 5,
+    "lasso_lambdas": 30,
+    "stack_folds": 3,
+    "jobs": 2,
+    "missing_threshold": 0.2,
+    "embedding_components": 32,
+    "embedding_min_df": 10,
+    "fixed_parameters": {
+      "LR": {
+        "C": 1.0
+      },
+      "RF": {
+        "n_estimators": 200,
+        "max_depth": 10,
+        "min_samples_leaf": 10,
+        "max_features": "sqrt"
+      },
+      "XGBoost": {
+        "n_estimators": 100,
+        "max_depth": 2,
+        "learning_rate": 0.1,
+        "subsample": 0.8,
+        "colsample_bytree": 0.6
+      }
+    },
+    "experiments": [
+      "static_lr",
+      "static_rf",
+      "static_xgb",
+      "static_stacking",
+      "temporal_lr",
+      "burden_lr",
+      "embedding_lr",
+      "combined_stacking"
+    ],
+    "profile": "full",
+    "method": "balanced_fixed_parameters",
+    "hyperparameter_tuning": false
+  },
+  "software_versions": {
+    "numpy": "2.4.6",
+    "pandas": "3.0.6",
+    "scipy": "1.17.1",
+    "scikit-learn": "1.9.1",
+    "xgboost": "3.4.2",
+    "duckdb": "1.5.6",
+    "joblib": "1.6.0"
+  },
+  "aggregate_file_sha256": {
+    "holdout_dca.csv": "3c2f29ffa28c8735d3e915b6a05789f8df421a9dee3fbaca50bee83ed30a05dc",
+    "holdout_paired_differences.csv": "14fc2c32cb9067a4b0b5ac92e28fb19e390750d549b4e32f1be0db59ee9f3e03",
+    "holdout_summary.csv": "f2167a00fbd1a354431df9d38b05cc747b672de839aac6c16c1b1e7c6cb17875"
+  },
+  "note": "Aggregate-only archived results from the original evaluated implementation. English/relocated reruns use a new code/run signature; do not relabel historical results as a new run. No patient rows or predictions are published."
+}

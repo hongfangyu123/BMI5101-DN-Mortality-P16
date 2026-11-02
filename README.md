@@ -20,7 +20,7 @@ All numbers are taken from `results/report_en.md`.
 | Benchmark pipeline under nested CV (replication cohort, 1,960 patients) | six configurations equivalent (AUROC 0.786–0.791); the benchmark's random-forest settings were significantly worse (0.724–0.767) |
 | Leading predictors | RDW, Charlson comorbidity index, age |
 
-**Extensions (exploratory, Part IV of the reports).** On the CLIN development set (2,045 patients, 544 deaths; 14 experiments × 50 outer folds, fixed-parameter "balanced" recipe), static stacking reached AUROC 0.8047 against 0.7993 for logistic regression under the same recipe: a difference of +0.0054, 95% CI of the difference [−0.0006, +0.0114], final Holm p = 1.0. The direction is consistent but the gain is not statistically confirmed. Temporal trajectories showed no clear gain, the diagnosis embedding gave only the random forest a small numerical improvement, and combined stacking (0.8048) was almost identical to static stacking. The held-out set was not used for the extensions, so these development-set figures do not replace the held-out AUROC of about 0.750.
+**Extensions (exploratory, Part IV of the reports).** On the CLIN development set (2,045 patients, 544 deaths; 14 experiments × 50 outer folds, fixed-parameter "balanced" recipe), static stacking reached AUROC 0.8047 against 0.7993 for logistic regression under the same recipe: a difference of +0.0054, 95% CI of the difference [−0.0006, +0.0114], final Holm p = 1.0. The direction is consistent but the gain is not statistically confirmed. Temporal trajectories showed no clear gain, the diagnosis embedding gave only the random forest a small numerical improvement, and combined stacking (0.8048) was almost identical to static stacking. The held-out set was not used in this original development-CV analysis. Later supplementary evaluations are documented below; the development figures do not replace the original held-out AUROC of about 0.750.
 
 ## Repository layout
 
@@ -80,3 +80,28 @@ This repository contains **no patient-level data**: no raw MIMIC files, identifi
 ## Acknowledgements
 
 The benchmark study by Huang et al. (2025), MIMIC-IV (Johnson et al., Sci Data 2023) and MIT-LCP/mimic-code. The data licence is separate from the code, and this repository grants no data access.
+
+
+## Supplementary validation added after development CV
+
+The original Part IV development analysis did not read holdout labels. The following later evaluations are separate; retain all three views rather than substituting the highest score:
+
+| Evaluation | Static LR AUROC | Static stacking AUROC | Combined stacking AUROC |
+|---|---:|---:|---:|
+| Development 5x10-fold CV, fixed-parameter recipe | 0.7993 | 0.8047 | 0.8048 |
+| Previously inspected original holdout, 512 patients | 0.7533 | 0.7559 | 0.7556 |
+| Five exploratory repeated 80/20 holdouts, mean | 0.7949 | 0.7983 | 0.8005 |
+
+Repeated-split SDs are 0.0166, 0.0130 and 0.0142, not CIs. Static stacking has small directional gains, but all approximate corrected paired AUROC/AUPRC/Brier difference intervals include zero. Added trajectories/diagnosis representation show no stable incremental gain. The original holdout has already been inspected; the merged repeated-split analysis is exploratory, not new blind/external confirmation.
+
+English supplementary reports and provenance: [original holdout](extensions/balanced/results/holdout/6f7b96b948977755/report.md), [five splits](extensions/balanced/results/repeated_holdout/d6f09e8dedcfbfc1/report.md), [paired intervals](extensions/balanced/results/repeated_holdout/d6f09e8dedcfbfc1/paired_corrected_ci.md). Interactive readers: [Notebook 07](extensions/balanced/notebooks/07_holdout_evaluation.ipynb), [Notebook 08](extensions/balanced/notebooks/08_repeated_holdout.ipynb). These additions do not alter the existing manuscript or baseline report generator.
+
+```bash
+bash extensions/balanced/run_extensions.sh holdout --check-only
+bash extensions/balanced/run_extensions.sh holdout --run
+bash extensions/balanced/run_extensions.sh repeated-holdout --check-only
+bash extensions/balanced/run_extensions.sh repeated-holdout --run
+bash extensions/balanced/run_extensions.sh paired-ci
+```
+
+Real patient fitting requires your own authorized MIMIC features/database; it never starts by default. `paired-ci` and synthetic tests need no patient data. Wrappers preserve the existing `dn_repro` environment default and `BMI5101_CONDA_ENV` override. Existing recipe settings and baseline training code are unchanged. New result archives contain only aggregates; historical run signatures are preserved, while translated/relocated reruns create new signatures. See the workflow READMEs for exact source-compatibility checks and resume behavior.

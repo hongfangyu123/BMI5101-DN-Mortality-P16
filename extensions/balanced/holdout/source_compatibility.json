@@ -1,0 +1,14 @@
+{
+  "original_code_sha256": "fe1d0da69caf22eb8919e2da4ffa5ee3ff79feba915abebb52c779e556c5f89c",
+  "reviewed_repository_code_sha256": "ddef893577ecddd17f991978eacdab39ff07a5c31500e2a2c05d79c00bc94a09",
+  "required_file_sha256": {
+    "extensions/balanced/dn_extensions/modeling.py": "cf9c708061a444b167877870497821d7d86e335cb7935dd80acd9a317966d382",
+    "extensions/balanced/dn_extensions/features.py": "0e9b0c7a78b05267cc78a50f365599022bb0da2c8f5917f895692c807bcee6b9",
+    "extensions/balanced/dn_extensions/settings.py": "40cb522136a01993ebeed0131f86a746812baa570fd0e5ff5d31266b37910137",
+    "extensions/balanced/config.yaml": "20f9a1283002bc912fe078722159264d8a3f8813a0dd1b1f91d6d1eaf7a1f5a2",
+    "src/lasso.py": "65219c1b6bf353d711b32eddd41e9de0e76c6a263e839f9a3e5f9024c08be191",
+    "src/variables.py": "c8af49625983214bf35f440180837a016a5a2274cdd7f1b6db07e31dfaa9b4c9",
+    "src/metrics.py": "dcfc34dbea445f7d07e51aa52ad1c70878f0d178d1caf15ca5f7e65d37a29709"
+  },
+  "review": "Original/current training ASTs match after removing docstrings and exception-message text; lasso, metrics and variable files are byte-identical. Raw development data, options and software versions must still match the original experiment."
+}

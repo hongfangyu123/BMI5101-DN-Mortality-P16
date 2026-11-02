@@ -11,7 +11,10 @@ if (($#)); then shift; fi
 case "$mode" in
   check) conda run --no-capture-output -n "$ENV" python -u scripts/00_preflight.py "$@" ;;
   prepare) printf "Features are shared with the parent directory; run: bash extensions/run_extensions.sh prepare\n" >&2; exit 2 ;;
+  holdout) conda run --no-capture-output -n "$ENV" python -B -u holdout/run_holdout.py "$@" ;;
+  repeated-holdout) conda run --no-capture-output -n "$ENV" python -B -u repeated_holdout/run_repeated_holdout.py "$@" ;;
+  paired-ci) conda run --no-capture-output -n "$ENV" python -B -u repeated_holdout/paired_confidence_intervals.py "$@" ;;
   pilot|full) conda run --no-capture-output -n "$ENV" python -u scripts/02_run_experiments.py --profile "$mode" "$@" ;;
   smoke) conda run --no-capture-output -n "$ENV" python -u tests/smoke_checks.py ;;
-  *) printf 'Usage: bash run_extensions.sh [check|prepare|pilot|full|smoke] [arguments]\n' >&2; exit 2 ;;
+  *) printf 'Usage: bash run_extensions.sh [check|prepare|pilot|full|holdout|repeated-holdout|paired-ci|smoke] [arguments]\n' >&2; exit 2 ;;
 esac
