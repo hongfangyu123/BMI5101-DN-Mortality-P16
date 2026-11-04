@@ -294,3 +294,5 @@ Not listed (not data): citation numbers in brackets, section/table/figure/item l
 | Table 8 all values | 3.8 Table 8 | §23.1 table and summary.csv (fold means/SD rounded to 3 dp); ΔAUROC and CIs from §23.2 / paired_comparisons.csv |
 | 14 models, 45 comparisons | S12 | §23.1, §23.2 |
 | 2.8 × 10⁻¹⁴ (max abs diff, local rebuild vs archived extension features); same patients/outcomes/missingness | 2.8 | Hh local check 2026-10-22 (prompt_check_extension_data.md): 26 of 188 columns differ, 25 *_slope_per_hour + mbp_mean |
+
+| Held-out calibration CIs (Wald), post hoc | LR (L2): intercept +0.049 (−0.171, 0.270), slope 0.82 (0.62–1.03), p(slope=1) = 0.09, p(int=0) = 0.66; RF: intercept +0.013 (−0.197, 0.223), slope 1.14 (0.86–1.42) | results/clinical/holdout_calibration_ci_clin.csv (04l, commit 074c550) |

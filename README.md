@@ -1,4 +1,4 @@
-# One-year mortality in ICU patients with diabetic neuropathy: a leakage-free, landmark-based model on MIMIC-IV v3.1
+# Revisiting mortality prediction in ICU patients with diabetic neuropathy: a 24-hour landmark study using MIMIC-IV v3.1
 
 BMI5101 Group Project (P16). We rebuild the framework of Huang et al., *Machine learning models predict mortality risk in diabetic neuropathy patients using MIMIC-IV data*, Sci Rep 2025;15:38702 ([doi:10.1038/s41598-025-22363-x](https://doi.org/10.1038/s41598-025-22363-x)) on MIMIC-IV v3.1, correct its methodological problems, and develop a landmark model that predicts one-year mortality 24 h after ICU admission. Exploratory extensions (stacking, first-day temporal trajectories and prior-diagnosis embeddings) are evaluated on the same development set.
 

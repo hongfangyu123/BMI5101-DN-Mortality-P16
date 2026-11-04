@@ -32,7 +32,12 @@ what its results can show \parencite{collins2015}.
 \subsection{Issues and our modifications}\label{issues-and-our-modifications}}
 
 Table 1 lists seven issues in the benchmark, what each implies, and how we
-changed the analysis. The rest of the paper follows this table: Section 2
+changed the analysis. The issues differ in the strength of evidence: I1, I2, I3,
+I6 and the single validation set in I5 are stated in the benchmark; the missing
+outcome window, hypertension definition, calibration and tuning grids are not
+reported; and the mixed differential units and the positive class of the
+threshold metrics (I4, I7) are our inferences from its tables, which its code
+would be needed to confirm. The rest of the paper follows this table: Section 2
 implements each modification, Section 3 gives the evidence, and Section 4
 summarises the effect of each change.
 
@@ -87,25 +92,27 @@ codes for acute events of the current stay are counted as pre-existing disease.
 & Comorbidities from prior admissions plus chronic index-admission codes; CCI
 without its age component. & 2.3, 3.6 \\
 I4 & The outcome was described inconsistently (in-hospital death in the
-abstract, a death within one year after discharge in a SHAP example) and was not
+abstract, a non-hospital death within one year in a SHAP example) and was not
 defined in the Methods; white-cell differential units appear mixed; the
 hypertension definition was not given. & Mortality cannot be interpreted;
 differential-based predictors may reflect test format; a narrow hypertension
 definition creates a spurious protective effect. & Death within 365 days of ICU
 admission; absolute cell counts; full Quan--Elixhauser hypertension definition.
 & 2.3, 3.2 \\
-I5 & Models were compared on one 263-patient validation set; LASSO and tuning
-were run on the whole training set outside cross-validation. & Model differences
-are smaller than the uncertainty of a single small validation set, and
-performance estimates are optimistic \parencite{varma2006,cawley2010}. &
-Repeated nested cross-validation with every data-dependent step inside the
-folds; corrected resampled t-test; pre-specified selection rule; frozen model
-evaluated once on a held-out set. & 2.5, 3.3, 3.4 \\
+I5 & Models were compared on one 263-patient validation set; LASSO was run once
+on the whole training set, and 10-fold cross-validation for tuning was not
+nested within an outer validation loop. & Model differences are smaller than the
+uncertainty of a single small validation set, and performance estimates are
+optimistic \parencite{varma2006,cawley2010}. & Repeated nested cross-validation
+with every data-dependent step inside the folds; corrected resampled t-test;
+pre-specified selection rule; frozen model evaluated once on a held-out set. &
+2.5, 3.3, 3.4 \\
 I6 & RF was chosen despite a training AUC of 0.999 against a validation AUC of
-0.780; tuning grids were not reported. & The selected model is likely
-overfitted, and comparator models may not have been tuned comparably. & Every
-model family tuned on stated grids inside the folds and compared side by side
-with the benchmark's parameters. & 2.4, 3.3 \\
+0.780, a gap the authors themselves reported as overfitting; tuning grids were
+not reported. & The selected model is likely overfitted, and comparator models
+may not have been tuned comparably. & Every model family tuned on stated grids
+inside the folds and compared side by side with the benchmark's parameters. &
+2.4, 3.3 \\
 I7 & Performance was reported as AUC, threshold metrics, decision curves and
 clinical impact curves on the validation set, without calibration or Brier
 score; the threshold metrics appear consistent only with survival as the
@@ -125,18 +132,21 @@ This study makes four contributions:
 \def\labelenumi{\arabic{enumi}.}
 \tightlist
 \item
-  \textbf{A leakage-free evaluation of the benchmark framework.} Repeated nested
+  \textbf{A re-evaluation of the benchmark framework.} Repeated nested
   cross-validation, a corrected test and a pre-specified selection rule are
   applied to the benchmark's own model configurations and to tuned alternatives.
 \item
-  \textbf{A deployable landmark model.} The model predicts at a defined time
-  from information available then, retains patients without a white-cell
-  differential and uses timed comorbidity information; it was frozen before a
-  single confirmatory held-out evaluation.
+  \textbf{A landmark model with a defined time of use.} The model predicts at 24
+  h after ICU admission, conditional on survival in the ICU to that time,
+  retains patients without a white-cell differential and separates
+  prior-admission and chronic index-admission diagnoses from acute ones; it was
+  frozen before a single confirmatory held-out evaluation.
 \item
-  \textbf{An empirical check of the benchmark's issues.} For each issue in Table
-  1 we report how much the modification changed the cohort, the predictors or
-  the performance, including the modifications that made little difference.
+  \textbf{An empirical check of the benchmark's issues.} Its overfitting was
+  reported by its authors; our contribution is to quantify and explain it. For
+  each issue in Table 1 we report how much the modification changed the cohort,
+  the predictors or the performance, including the modifications that made
+  little difference.
 \item
   \textbf{An exploratory test of proposed extensions.} First-day trajectory
   features, prior-diagnosis representations and a stacking ensemble are compared
@@ -206,8 +216,12 @@ I4)}\label{outcome-and-predictors-i2-i3-i4}}
 of ICU admission and 365 days later, using the in-hospital time of death when
 available and the date of death from state records otherwise, compared at date
 granularity. MIMIC-IV records out-of-hospital deaths up to one year after a
-patient's last discharge, so every death within the 365-day window is observed.
-Cause of death is not available.
+patient's last discharge, so deaths within the 365-day window are captured to
+the extent recorded in hospital and state death records; the window boundary is
+resolved only to the day. The model therefore estimates, for patients alive and
+in the ICU at 24 h, the risk of death by day 365 after ICU admission; it does
+not apply to patients who die or leave the ICU within the first 24 h. Cause of
+death is not available.
 
 \textbf{Candidate predictors.} We extracted the benchmark's 55 candidate
 predictors: age and sex; six comorbidities (myocardial infarction, congestive
@@ -219,7 +233,8 @@ PTT, PT, INR); four vital signs (heart rate, mean blood pressure, respiratory
 rate, temperature); six severity scores (SAPS-II, APS-III, LODS, OASIS, GCS,
 CCI); and six inflammatory ratios (NLR, PLR, LMR, PNR, PWR, SII). Laboratory
 values were taken from 6 h before to 24 h after ICU admission and vital signs
-from the first 24 h, so all predictors are available at the landmark. Every
+from the first 24 h. Windows were defined on the measurement (chart) time; we
+did not check whether each laboratory result had been reported by 24 h. Every
 laboratory item identifier was checked against the MIMIC-IV dictionaries.
 
 \textbf{Units and definitions (I4).} White-cell differentials were taken as
@@ -372,11 +387,14 @@ stratified 5-fold cross-validation) were run in turn; the model was then
 refitted on the whole outer training fold and evaluated on the untouched outer
 validation fold (Figure 2). This estimates the performance of the whole
 modelling procedure, including variable selection and tuning, rather than of one
-fitted model \parencite{varma2006,cawley2010}. AUROC is reported as the mean ±
-SD over the 50 outer folds. In each repeat the 10 outer validation folds were
-pooled into out-of-fold (OOF) predictions covering the whole training set;
-AUPRC, Brier score, calibration, decision curves and thresholds were computed
-from these and averaged over the 5 repeats.
+fitted model \parencite{varma2006,cawley2010}. Preprocessing and LASSO were
+fitted once per outer training fold and were not refitted inside the inner
+tuning folds; outer validation observations were not used in preprocessing,
+variable selection or tuning. AUROC is reported as the mean ± SD over the 50
+outer folds. In each repeat the 10 outer validation folds were pooled into
+out-of-fold (OOF) predictions covering the whole training set; AUPRC, Brier
+score, calibration, decision curves and thresholds were computed from these and
+averaged over the 5 repeats.
 
 \begin{figure}[tbp]
 \centering
@@ -399,19 +417,21 @@ variance to account for the overlap between training sets, which the naive
 paired t-test (variance \(\hat\sigma_d^2/J\)) ignores. The 95\% confidence
 interval for the difference is \(\bar d \pm t_{0.975,\,J-1}\) times the
 corrected standard error. In a simulation with 200 null datasets and the same
-10-fold, 5-repeat design, the corrected test rejected the null hypothesis in
-4.0\% of datasets and the uncorrected paired t-test in 38.0\%.
+10-fold, 5-repeat design, the corrected test, which is an approximation,
+rejected the null hypothesis in 4.0\% of datasets and the uncorrected paired
+t-test in 38.0\%.
 
 \textbf{Pre-specified model-selection rule.} (1) The configuration with the
-highest mean outer AUROC is the reference M*. (2) A configuration is equivalent
-to M* if its AUROC difference is at most 0.01, or at most 0.02 with a 95\%
-confidence interval that includes zero. (3) If the equivalent set contains an
-LR, an LR is chosen, for parsimony and interpretability. (4) If both LRs are
-equivalent, the one whose pooled-OOF calibration slope is closer to 1 is chosen,
-measured by the mean over repeats of \textbar ln slope\textbar{} (the
-unpenalised LR on a tie). (5) The held-out set plays no part. The rule was
-written before any landmark analysis was run; for the reference cohort it was
-written after exploratory analyses and is therefore not blind.
+highest mean outer AUROC is the reference M*. (2) A configuration is retained as
+a candidate if its AUROC is lower than that of M* by at most 0.01, or by at most
+0.02 with a 95\% confidence interval for the difference that includes zero. (3)
+If the candidates include an LR, an LR is chosen, for parsimony and
+interpretability. (4) If both LRs are candidates, the one whose pooled-OOF
+calibration slope is closer to 1 is chosen, measured by the mean over repeats of
+\textbar ln slope\textbar{} (the unpenalised LR on a tie). (5) The held-out set
+plays no part. The rule was written before any landmark analysis was run; for
+the reference cohort it was written after exploratory analyses and is therefore
+not blind.
 
 \textbf{Freezing and the held-out evaluation.} After selection, the final
 landmark model was fitted on the whole training set with the same pipeline
@@ -428,7 +448,10 @@ reported only as a secondary estimate.
 interval used the DeLong variance \parencite{delong1988}, computed with the fast
 algorithm of \textcite{sun2014}, and the two frozen models were compared with
 the paired DeLong test. AUPRC confidence intervals came from a stratified
-bootstrap with 2,000 resamples (percentile method).
+bootstrap with 2,000 resamples (percentile method). Calibration intercepts and
+slopes were given Wald 95\% confidence intervals from the recalibration models;
+these were computed after the confirmatory evaluation, from the same frozen
+predictions.
 
 \hypertarget{metrics-i7}{%
 \subsection{Metrics (I7)}\label{metrics-i7}}
@@ -491,13 +514,15 @@ same training data, \(\mathrm{E}[x_j] = 0\) and
 \(\phi_j(\mathbf{x}) = \beta_j x_j\). Global importance is the mean \(|\phi_j|\)
 over the held-out set. Tree models were explained with TreeExplainer.
 
-\textbf{Odds ratios.} For inference, the selected predictors were refitted by
-unpenalised LR on the training set. Because predictors are standardised,
-\(\exp(\beta_j)\) is the odds ratio per standard deviation, with Wald 95\%
-confidence interval \(\exp(\beta_j \pm 1.96\,\mathrm{SE}_j)\); for binary
-predictors the coefficient was rescaled by the predictor's standard deviation to
-give the odds ratio for yes versus no. Collinearity was checked with variance
-inflation factors (VIF).
+\textbf{Odds ratios.} To describe associations, the selected predictors were
+refitted by unpenalised LR on the training set. These odds ratios differ from
+the penalised coefficients of the final model, and their Wald intervals do not
+account for variable selection, so they are exploratory. Because predictors are
+standardised, \(\exp(\beta_j)\) is the odds ratio per standard deviation, with
+Wald 95\% confidence interval \(\exp(\beta_j \pm 1.96\,\mathrm{SE}_j)\); for
+binary predictors the coefficient was rescaled by the predictor's standard
+deviation to give the odds ratio for yes versus no. Collinearity was checked
+with variance inflation factors (VIF).
 
 \textbf{Sensitivity analyses.} All were run with the full nested
 cross-validation on the same outer splits as the main analysis, and compared
@@ -535,11 +560,8 @@ with missingness screening, imputation, LASSO and the embedding refitted within
 each training fold. Each extension was compared with its matched control on the
 same folds by the corrected test, with Holm adjustment over 15 comparisons per
 metric. Because this recipe omits inner tuning, the extensions are compared only
-with their own static controls, not with Table 4. The extension experiments were
-run on a separate machine; rebuilding their input features from our own data
-reproduced the same patients, outcomes and missingness pattern, with numerical
-differences only at floating-point precision (maximum absolute difference
-\(2.8 \times 10^{-14}\)).
+with their own static controls, not with Table 4. Input features were verified
+against our own extraction (Supplementary S12).
 
 \hypertarget{results}{%
 \section{Results}\label{results}}
@@ -547,9 +569,6 @@ differences only at floating-point precision (maximum absolute difference
 \hypertarget{cohort-who-the-benchmarks-criteria-exclude-i1-i2}{%
 \subsection{Cohort: who the benchmark's criteria exclude (I1,
 I2)}\label{cohort-who-the-benchmarks-criteria-exclude-i1-i2}}
-
-\emph{This section shows which patients the length-of-stay and blood-count
-criteria remove (I1, I2).}
 
 Of 8,992 patients with a DN code, 3,189 had a DN-coded admission with an ICU
 stay (Figure 1). The landmark cohort comprised 2,557 patients with 680 deaths
@@ -646,9 +665,7 @@ Prior admission & 1,452 (56.79\%) & 1,028 (54.77\%) & 424 (62.35\%) &
 \subsection{Definition errors in the benchmark
 (I4)}\label{definition-errors-in-the-benchmark-i4}}
 
-\emph{This section gives the evidence for the three definition problems
-addressed by I4. The comparisons use the reference cohort, which follows the
-benchmark's criteria.}
+The comparisons in this section use the reference cohort.
 
 \textbf{Mortality.} One-year mortality from ICU admission was 25.2\% in the
 reference cohort, against 38.2\% in the benchmark. In-hospital mortality was
@@ -685,24 +702,20 @@ coded as normotensive, had a one-year mortality of 31.3\% (OR 1.91, 1.55--2.35).
 LASSO did not select hypertension under either definition, and the selected
 variables were identical, so the models were unaffected.
 
-\hypertarget{the-benchmark-pipeline-under-leakage-free-evaluation-i5-i6}{%
-\subsection{The benchmark pipeline under leakage-free evaluation (I5,
-I6)}\label{the-benchmark-pipeline-under-leakage-free-evaluation-i5-i6}}
-
-\emph{This section applies the improved evaluation (I5) and tuning (I6) to the
-reference cohort, to test the benchmark's own model ranking. Full results are in
-Supplementary S2.}
+\hypertarget{the-benchmark-pipeline-under-nested-cross-validation-i5-i6}{%
+\subsection{The benchmark pipeline under nested cross-validation (I5,
+I6)}\label{the-benchmark-pipeline-under-nested-cross-validation-i5-i6}}
 
 LASSO on the reference training set selected 12 variables at λ.1se (λ = 0.02667,
 against 0.02687 in the benchmark), seven of which overlapped with the
 benchmark's 12 (age, anion gap, RDW, chloride, PT, APS-III, CCI); at λ.min the
 overlap was 11 of 12.
 
-Under nested cross-validation, six configurations were equivalent to the best
-model, with AUROC 0.786--0.791 (Table 3). The benchmark's two RF configurations
-and its SVM were significantly worse, with confidence intervals for the
-difference that excluded zero. Among the benchmark-parameter models, only
-XGBoost matched the best model.
+Under nested cross-validation, six configurations met the selection criteria,
+with AUROC 0.786--0.791 (Table 3; full results in Supplementary S2). The
+benchmark's two RF configurations and its SVM were significantly worse, with
+confidence intervals for the difference that excluded zero. Among the
+benchmark-parameter models, only XGBoost matched the best model.
 
 \begin{longtable}[]{@{}
   >{\raggedright\arraybackslash}p{(\columnwidth - 12\tabcolsep) * \real{0.2417}}
@@ -773,10 +786,10 @@ SVM (benchmark parameters) & 0.679 & 0.723 ± 0.044 & 0.497 & 0.163 & 0.96 &
 0.068 (0.042, 0.093) \\
 \end{longtable}
 
-AUPRC baseline = 0.252. The first six rows are equivalent to the reference under
-the pre-specified rule, which selected the unpenalised LR (for this cohort the
-rule was not blind; Section 2.5). On the secondary held-out set (392 patients),
-the unpenalised LR had AUROC 0.803 (0.753--0.853) and calibration slope 0.96.
+AUPRC baseline = 0.252. The first six rows met the selection criteria of the
+pre-specified rule, which selected the unpenalised LR (for this cohort the rule
+was not blind; Section 2.5). On the secondary held-out set (392 patients), the
+unpenalised LR had AUROC 0.803 (0.753--0.853) and calibration slope 0.96.
 
 Three further results bear on the benchmark's pipeline.
 
@@ -809,16 +822,13 @@ set, no pair of tuned models differed significantly after Holm correction
 \subsection{Improved landmark model (main
 result)}\label{improved-landmark-model-main-result}}
 
-\emph{This section reports the main estimate of the improved framework (I1--I6
-combined) for the landmark cohort.}
-
 \textbf{Nested cross-validation.} LASSO selected 13--23 of the 56 candidates per
 outer fold (median 17). Age, anion gap, CCI, OASIS, APS-III, respiratory rate,
 RDW, maximum chloride and obesity were selected in all 50 folds;
 \texttt{wbc\_diff\_missing} was selected in 13 of 50. Of the six comorbidities,
-only obesity was ever selected. Six configurations were again equivalent (AUROC
-0.794--0.801; Table 4), and the benchmark's RF and SVM configurations were again
-not.
+only obesity was ever selected. Six configurations again met the selection
+criteria (AUROC 0.794--0.801; Table 4), and the benchmark's RF and SVM
+configurations were again not.
 
 \begin{longtable}[]{@{}
   >{\raggedright\arraybackslash}p{(\columnwidth - 10\tabcolsep) * \real{0.2893}}
@@ -882,24 +892,20 @@ RF (benchmark, R defaults) & 0.740 ± 0.037 & 0.488 & 0.170 & 0.18 & 0.061
 
 AUPRC baseline = 0.266.
 
-\textbf{Model selection.} The L2-penalised LR had the highest mean AUROC and was
-the reference M*. Both LRs were in the equivalent set, and the rule chose the L2
-LR on calibration (mean \textbar ln slope\textbar{} 0.102 vs 0.109). This was a
-near tie: the two LRs differed in AUROC by 0.003, their slopes deviated from 1
-by similar amounts in opposite directions (1.11 and 0.90), and the unpenalised
-LR was closer to 1 in three of five repeats. No claim of better discrimination
-is made for the selected model. Inner tuning chose C = 0.01 in all 50 folds.
+\textbf{Model selection.} The pre-specified rule selected the L2-penalised LR on
+calibration (mean \textbar ln slope\textbar{} 0.102 vs 0.109), although its
+discrimination was similar to that of the unpenalised LR (difference 0.003).
+Inner tuning chose C = 0.01 in all 50 folds.
 
 \textbf{Final model.} Refitted on the whole training set (544 events), LASSO
-selected 22 variables (λ.1se = 0.0168; 24.7 events per selected variable) and
-inner tuning chose C = 0.01. The frozen model and the tuned RF comparator were
-evaluated once on the held-out set (512 patients, 136 deaths; Table 5, Figure
-3).
+selected 22 variables (λ.1se = 0.0168) and inner tuning chose C = 0.01. The
+frozen model and the tuned RF comparator were evaluated once on the held-out set
+(512 patients, 136 deaths; Table 5, Figure 3).
 
 \begin{longtable}[]{@{}
-  >{\raggedright\arraybackslash}p{(\columnwidth - 4\tabcolsep) * \real{0.4167}}
-  >{\raggedright\arraybackslash}p{(\columnwidth - 4\tabcolsep) * \real{0.2917}}
-  >{\raggedright\arraybackslash}p{(\columnwidth - 4\tabcolsep) * \real{0.2917}}@{}}
+  >{\raggedright\arraybackslash}p{(\columnwidth - 4\tabcolsep) * \real{0.3884}}
+  >{\raggedright\arraybackslash}p{(\columnwidth - 4\tabcolsep) * \real{0.3058}}
+  >{\raggedright\arraybackslash}p{(\columnwidth - 4\tabcolsep) * \real{0.3058}}@{}}
 \caption{Landmark cohort: confirmatory held-out evaluation of the frozen
 models.}\tabularnewline
 \toprule\noalign{}
@@ -927,7 +933,9 @@ RF (tuned), comparator
 AUROC (95\% CI) & 0.750 (0.702--0.797) & 0.752 (0.704--0.799) \\
 AUPRC (95\% CI; baseline 0.266) & 0.533 (0.459--0.611) & 0.529 (0.460--0.615) \\
 Brier / scaled Brier & 0.165 / 0.153 & 0.164 / 0.161 \\
-Calibration intercept / slope & +0.049 / 0.82 & +0.013 / 1.14 \\
+Calibration intercept (95\% CI) & +0.049 (−0.171, 0.270) & +0.013 (−0.197,
+0.223) \\
+Calibration slope (95\% CI) & 0.82 (0.62--1.03) & 1.14 (0.86--1.42) \\
 Threshold (OOF Youden) & 0.258 & 0.241 \\
 Sensitivity / specificity & 0.684 / 0.697 & 0.779 / 0.596 \\
 Precision / F1 & 0.449 / 0.542 & 0.411 / 0.538 \\
@@ -946,37 +954,26 @@ Paired DeLong test, LR − RF: −0.002 (−0.021, 0.016), p = 0.83.
 \end{figure}
 
 \textbf{Held-out estimate below the cross-validated estimate.} The held-out
-AUROC was about 0.05 below the nested-CV estimate, and the nested-CV estimate
-lay above the upper limit of the held-out confidence interval. The RF comparator
-dropped in parallel (0.797 to 0.752). Post-hoc checks, which changed neither the
-frozen model nor the confirmatory result, did not point to overfitting: the
-frozen LR's apparent training AUROC was 0.817, only 0.016 above nested CV. When
-the OOF predictions were resampled 10,000 times to the held-out composition (136
-deaths, 376 survivors), the mean AUROC was 0.800 (SD 0.021; 2.5th percentile
-0.755), and 1.4\% of resamples were at or below 0.750; this simulation ignores
-refitting variability and so understates the total variation. The largest
-standardised mean difference between training and held-out sets across the 22
-selected variables was 0.11. The gap is therefore more likely sampling variation
-in a 512-patient set than overfitting, although other causes cannot be excluded.
-As pre-specified, the model was not changed and the evaluation was not repeated;
-taken together, the landmark model's discrimination lies between 0.75 and 0.80.
+AUROC was lower than the nested-CV estimate for both LR (0.750 vs 0.801) and RF
+(0.752 vs 0.797). The available analyses did not establish the cause of this
+difference; post-hoc diagnostic analyses are reported in Supplementary S13.
 
 \hypertarget{calibration-and-clinical-utility-i7}{%
 \subsection{Calibration and clinical utility
 (I7)}\label{calibration-and-clinical-utility-i7}}
 
-\emph{This section reports the metrics added under I7.}
-
 \textbf{Calibration.} Out of fold, the selected L2 LR had a calibration slope of
 1.11 (predictions slightly too close to the mean) and the unpenalised LR 0.90.
-On the held-out set, the L2 LR's slope was 0.82 with intercept +0.049, so its
-predictions were slightly too extreme, the opposite direction to the
-cross-validated estimate. The tuned RF had out-of-fold slopes of 1.46 in the
-landmark cohort and 1.48 in the reference cohort (predictions shrunk towards the
-mean), and 1.14 on the held-out set. The benchmark's R-default RF had slopes of
-0.18 and 0.15. Discrimination alone would not have revealed these differences,
-and the instability of the selected model's slope means that it must be
-recalibrated before use in a new population.
+On the held-out set, the L2 LR's slope was 0.82 (95\% CI 0.62--1.03) with
+intercept +0.049 (−0.171 to 0.270): the point estimate suggests slightly too
+extreme predictions, the opposite direction to the cross-validated estimate, but
+with 136 deaths neither value differed clearly from perfect calibration (p =
+0.09 for slope = 1). The tuned RF had out-of-fold slopes of 1.46 in the landmark
+cohort and 1.48 in the reference cohort (predictions shrunk towards the mean),
+and 1.14 (0.86--1.42) on the held-out set. The benchmark's R-default RF had
+slopes of 0.18 and 0.15. Discrimination alone would not have revealed these
+differences, and the change in the selected model's slope between samples means
+that calibration should be assessed in any target population.
 
 \textbf{Overall accuracy.} The held-out Brier score of the L2 LR was 0.165
 (scaled Brier 0.153), similar to the RF comparator (0.164; 0.161).
@@ -990,18 +987,14 @@ set.
 \textbf{Classification.} At its out-of-fold Youden threshold (0.258), the
 landmark LR flagged 40.4\% of held-out patients as high risk, of whom 44.9\%
 died within one year (precision 0.449), with sensitivity 0.684 and specificity
-0.697. A threshold of 0.5 would be inappropriate at this prevalence: in the
-reference cohort it flagged only 16.3\% of patients, with sensitivity 0.44. The
-benchmark reported precision 0.735 and recall 0.858 for its RF; these values are
-internally consistent only if survival was the positive class, so they are not
-comparable with ours.
+0.697. In the reference cohort, a threshold of 0.5 flagged 16.3\% of patients
+and yielded a sensitivity of 0.44. The benchmark reported precision 0.735 and
+recall 0.858 for its RF; these values are internally consistent only if survival
+was the positive class, so they are not comparable with ours.
 
 \hypertarget{what-each-improvement-changed-sensitivity-analyses}{%
 \subsection{What each improvement changed (sensitivity
 analyses)}\label{what-each-improvement-changed-sensitivity-analyses}}
-
-\emph{This section isolates the effect of the comorbidity-timing (I3) and
-white-cell differential (I2) modifications, and of the data release.}
 
 \begin{longtable}[]{@{}
   >{\raggedright\arraybackslash}p{(\columnwidth - 8\tabcolsep) * \real{0.1250}}
@@ -1065,11 +1058,11 @@ from 50 to 4 of 50 folds. This prior-only estimate (about 0.787) is the most
 conservative deployment scenario, because it does not assume that chronic
 index-admission codes were present at admission.
 
-\textbf{White-cell differential (I2).} Removing all eight differential
-variables, including the missingness indicator, did not change discrimination,
-AUPRC, Brier score or calibration, and reduced the median number of selected
-variables from 17 to 13. The benefit of I2 is therefore in the cohort it allows,
-not in discrimination.
+\textbf{White-cell differential (I2).} Removing the eight differential variables
+and the missingness indicator did not change discrimination, AUPRC, Brier score
+or calibration, and reduced the median number of selected variables from 17 to
+13. The benefit of I2 is therefore in the cohort it allows, not in
+discrimination.
 
 \textbf{Data release.} Excluding the 247 patients admitted in 2020--2022 from
 the reference cohort (new single 80/20 split) gave validation AUROCs of 0.799
@@ -1079,9 +1072,6 @@ the LR.
 
 \hypertarget{predictors-and-interpretation}{%
 \subsection{Predictors and interpretation}\label{predictors-and-interpretation}}
-
-\emph{This section compares the predictors identified by the benchmark and by
-our models.}
 
 RDW and CCI ranked first and second in every model, and age ranked third in both
 LRs; the tuned RF ranked SAPS-II third (Table 7; Figure 4). In the landmark
@@ -1150,8 +1140,7 @@ Landmark: LR (L2)
 \hypertarget{exploratory-extensions-1}{%
 \subsection{Exploratory extensions}\label{exploratory-extensions-1}}
 
-\emph{This section reports the extensions proposed in the project brief; all
-results come from the development set.}
+All extension results come from the development set.
 
 None of the extensions clearly improved on the static LR (Table 8). Stacking had
 the highest AUROC, 0.805 against 0.799, a difference of 0.005 (95\% CI −0.001 to
@@ -1232,18 +1221,20 @@ Stacking, all extensions & 0.805 ± 0.027 & 0.616 & 0.150 & Static stacking &
 \hypertarget{principal-findings}{%
 \subsection{Principal findings}\label{principal-findings}}
 
-Starting from the benchmark's framework, we corrected seven issues and evaluated
-the result without leakage. The improved landmark model predicts one-year
-mortality at a defined time, 24 h after ICU admission, from information
-available then, and keeps the third of patients that the benchmark's blood-count
-criterion excluded. Its discrimination was moderate, with a nested-CV AUROC of
-0.801 and a confirmatory held-out AUROC of 0.750. Simple LR performed as well as
-RF, XGBoost and SVM once every family was tuned inside the folds. The
-benchmark's conclusion that RF is superior was not reproduced: its RF
-configuration was significantly worse than the best model, and its training AUC
-of 0.999 is reproduced by a forest of nine fully grown trees that memorises the
-training data. The leading predictors were stable across cohorts and models:
-RDW, comorbidity burden, age, illness severity and low chloride.
+Starting from the benchmark's framework, we corrected seven issues and
+re-evaluated the result. The improved landmark model predicts one-year mortality
+at a defined time, 24 h after ICU admission, in patients alive and in the ICU at
+that time, and keeps the third of patients that the benchmark's blood-count
+criterion excluded. Its nested-CV AUROC was 0.801 on the development set and its
+AUROC on the held-out set was 0.750. Within the benchmark's framework of shared
+LASSO selection and our tuning grids, we found no evidence that RF, XGBoost or
+SVM outperforms LR; because the trees received only LASSO-selected variables,
+this does not show that LR matches tree models in general. The benchmark's
+conclusion that RF is superior was not reproduced: its RF configuration was
+significantly worse than the best model, and its training AUC of 0.999 is
+reproduced by a forest of nine fully grown trees that memorises the training
+data. The leading predictors were stable across cohorts and models: RDW,
+comorbidity burden, age, illness severity and low chloride.
 
 \hypertarget{impact-of-each-improvement}{%
 \subsection{Impact of each improvement}\label{impact-of-each-improvement}}
@@ -1252,8 +1243,8 @@ Table 9 summarises what each modification changed. Some changed the conclusions;
 others changed little and are reported for completeness.
 
 \begin{longtable}[]{@{}
-  >{\raggedright\arraybackslash}p{(\columnwidth - 2\tabcolsep) * \real{0.1333}}
-  >{\raggedright\arraybackslash}p{(\columnwidth - 2\tabcolsep) * \real{0.8667}}@{}}
+  >{\raggedright\arraybackslash}p{(\columnwidth - 2\tabcolsep) * \real{0.1417}}
+  >{\raggedright\arraybackslash}p{(\columnwidth - 2\tabcolsep) * \real{0.8583}}@{}}
 \caption{Observed effect of each improvement.}\tabularnewline
 \toprule\noalign{}
 \begin{minipage}[b]{\linewidth}\raggedright
@@ -1295,42 +1286,34 @@ I5 Nested evaluation & Selecting variables outside cross-validation overstated
 AUROC by 0.008--0.030 in a single-repeat analysis (0.011 for the unpenalised
 LR). Preprocessing leakage changed metrics by at most 0.001: no material effect
 at this missingness. A single validation set could not separate the tuned
-models, and the held-out estimate was 0.05 below the cross-validated one,
-showing the variability of single-set estimates. \\
+models, and the held-out estimate was 0.05 below the cross-validated one. \\
 I6 Tuning all families & The largest effect. The benchmark's RF configurations
 reached 0.724 and 0.767, significantly below the best model (0.791), whereas the
-tuned RF (0.788) was equivalent to it. With tuning, the apparent advantage of RF
-disappeared. \\
+tuned RF (0.788) met the selection criteria. With tuning, no advantage of RF was
+found. \\
 I7 Calibration and decision curves & Revealed differences that discrimination
 hides: the R-default RF had slope 0.15, and the selected LR's slope moved from
-1.11 out of fold to 0.82 on the held-out set, so recalibration is required. Net
-benefit exceeded both default strategies at 53 of 56 thresholds. \\
+1.11 out of fold to 0.82 on the held-out set, so calibration needs to be
+assessed in the target population. Net benefit exceeded both default strategies
+at 53 of 56 thresholds. \\
 \end{longtable}
 
 \hypertarget{comparison-with-the-benchmark}{%
 \subsection{Comparison with the benchmark}\label{comparison-with-the-benchmark}}
 
-RF did not outperform the other families because, once all were tuned inside the
-folds, the differences between them were within 0.005 in the reference cohort
-and 0.008 in the landmark cohort. The benchmark's reported advantage of RF
-rested on a single 263-patient validation set, on which a confidence interval
-spans about ±0.05 (0.723--0.837 for its RF), and on a training AUC that reflects
-memorisation rather than performance.
+We found no RF advantage: once all families were tuned inside the folds, the
+differences between them were within 0.005 in the reference cohort and 0.008 in
+the landmark cohort. The benchmark's reported advantage of RF rested on a single
+263-patient validation set, on which a confidence interval spans about ±0.05
+(0.723--0.837 for its RF), and on a training AUC that reflects memorisation
+rather than performance, as the benchmark's authors themselves noted. Because
+the cohort, data release and outcome changed together, the difference cannot be
+attributed to any single correction.
 
-The landmark model's held-out AUROC of 0.750 is below the benchmark's 0.780, but
-the two numbers are not comparable, for four reasons. First, the cohorts differ:
-the landmark cohort includes patients without a white-cell differential, does
-not exclude patients with short hospital stays, and comes from a later data
-release. Second, the outcomes probably differ: the benchmark's abstract names
-in-hospital death, yet its mortality of 38.2\% is far above in-hospital
-mortality in our cohort and is consistent with counting deaths without a fixed
-window. Third, our estimate is confirmatory: the model was frozen before a
-single held-out evaluation, whereas the benchmark's validation set also served
-for model selection. Fourth, the held-out confidence interval (0.702--0.797)
-includes 0.780, and the same pipeline gave 0.786--0.791 in the reference cohort
-and 0.801 under nested cross-validation in the landmark cohort. The appropriate
-conclusion is that discrimination is moderate, about 0.75--0.80, in both
-studies.
+The held-out AUROCs of the two studies (0.750 here, 0.780 in the benchmark)
+should not be read as a direct comparison, because their cohorts, outcome
+definitions and validation procedures differ. In our held-out set, LR and RF
+achieved AUROCs of 0.750 and 0.752.
 
 \hypertarget{biological-plausibility-of-the-main-predictors}{%
 \subsection{Biological plausibility of the main
@@ -1349,9 +1332,9 @@ outcome in critical illness \parencite{tani2012}. The apparently protective
 effect of \textbf{coded obesity} was concentrated in patients whose obesity code
 appeared only during the index admission: their one-year mortality was 18.8\% (n
 = 416), against 26.4\% (n = 443) when obesity was coded in a prior admission and
-28.6\% (n = 1,698) without an obesity code. This suggests a documentation
-artefact rather than a true ``obesity paradox'', and it should be tested with
-measured body-mass index.
+28.6\% (n = 1,698) without an obesity code. The association may partly reflect
+differences in documentation rather than a true ``obesity paradox'', and should
+be tested with measured body-mass index.
 
 \hypertarget{limitations}{%
 \subsection{Limitations}\label{limitations}}
@@ -1360,25 +1343,36 @@ measured body-mass index.
 \tightlist
 \item
   \textbf{Single-centre, retrospective data and no external validation.} The
-  landmark held-out set has only 136 events, which limits the precision of the
-  confirmatory estimate.
+  held-out set is an internal validation from the same centre and database, and
+  has only 136 events, which limits the precision of the confirmatory estimate.
 \item
-  \textbf{DN identified from ICD codes.} Their accuracy is unknown, and codes
-  carry no timestamps. The main landmark estimate assumes that chronic
-  index-admission codes were present at admission; using prior admissions only
-  lowers AUROC to about 0.787.
+  \textbf{Information timing at the landmark.} DN itself was identified from ICD
+  codes of the index admission, which are assigned at discharge, so real-time
+  use requires DN status to be known from history or earlier admissions. The
+  main estimate also assumes that chronic index-admission codes were known at 24
+  h (using prior admissions only lowers AUROC to about 0.787), and laboratory
+  windows used measurement rather than reporting times. The removal of acute
+  codes reduces, but does not eliminate, the use of information that may not be
+  available at 24 h.
 \item
-  \textbf{Unstable calibration.} The slope was 1.11 out of fold and 0.82 on the
-  held-out set, so the model must be recalibrated before use in a new
-  population.
+  \textbf{Calibration.} The slope was 1.11 out of fold and 0.82 on the held-out
+  set, so calibration should be assessed, and the model recalibrated where
+  needed, in any target population.
 \item
   \textbf{Only first-day features.} Treatments were not used, within-day
   dynamics were tested only in the exploratory extensions, and cause of death is
   unavailable.
 \item
+  \textbf{Shared LASSO selection.} All model families received the same linearly
+  selected variables, so predictors that act only through non-linear effects or
+  interactions may have been removed before the tree models were fitted. Our
+  model comparison applies to this framework, not to the model families in
+  general.
+\item
   \textbf{Exploratory extensions.} They were run after the held-out results had
   been seen, with fixed rather than tuned hyperparameters, and were not
-  evaluated on held-out data; a small gain from stacking cannot be excluded.
+  evaluated on held-out data; the gain from stacking is uncertain (CI including
+  zero) rather than absent.
 \item
   \textbf{Non-blind model selection in the reference cohort.} The selection rule
   was written after exploratory analyses of the reference cohort, and its
@@ -1395,8 +1389,18 @@ measured body-mass index.
   \textbf{Temporal validation.} Train on earlier and test on later MIMIC-IV year
   groups, and validate externally in data with one-year follow-up.
 \item
-  \textbf{Recalibration and thresholds.} Recalibrate the model in the target
-  population and choose thresholds for specific clinical uses.
+  \textbf{Calibration and thresholds.} Assess calibration in the target
+  population and choose thresholds for specific clinical actions, such as early
+  goals-of-care discussion or targeted follow-up, according to their harms and
+  costs.
+\item
+  \textbf{Interpretation.} SHAP values describe the model, not causes of death,
+  and divide credit among correlated predictors such as APS-III, OASIS, SAPS-II
+  and CCI; interaction-aware or grouped explanations would help.
+\item
+  \textbf{Information timing and model families.} Check laboratory reporting
+  times, restrict inclusion to DN known before admission, and compare tree
+  models fitted without LASSO preselection.
 \item
   \textbf{Objective measurements.} Use measured body-mass index to test the
   obesity finding.
@@ -1412,12 +1416,15 @@ measured body-mass index.
 
 We took a published machine-learning framework for one-year mortality in ICU
 patients with diabetic neuropathy and corrected its cohort definition, predictor
-definitions and evaluation. The resulting landmark model uses only information
-available 24 h after ICU admission and was frozen before a single confirmatory
-evaluation. Under leakage-free nested cross-validation, LR matched tree
-ensembles, and the benchmark's reported RF advantage reflected an overfitted
-configuration and a single small validation set. RDW, comorbidity burden and age
-were consistently the strongest predictors. Exploratory trajectory features,
-diagnosis embeddings and stacking added little or nothing to discrimination. The
-landmark model's discrimination is moderate (AUROC 0.75--0.80), and it should be
-recalibrated locally before clinical use.
+definitions and evaluation. The resulting landmark model predicts at 24 h after
+ICU admission and was frozen before a single confirmatory evaluation. Within the
+benchmark's LASSO-based framework and under repeated nested cross-validation, we
+found no evidence that tree ensembles outperform LR; the benchmark's reported RF
+advantage is consistent with an overfitted configuration evaluated on a single
+small validation set. RDW, comorbidity burden and age were consistently the
+strongest predictors. Exploratory trajectory features and diagnosis embeddings
+did not improve discrimination, and the gain from stacking was uncertain. The
+landmark model had an AUROC of 0.801 in nested cross-validation and 0.750 on the
+held-out set; before clinical use, its calibration should be assessed locally,
+the availability of its inputs at 24 h confirmed, and its performance validated
+temporally or externally.

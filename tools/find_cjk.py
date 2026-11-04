@@ -1,5 +1,5 @@
 import re, subprocess, sys
-pat = re.compile(r'[　-〿一-鿿＀-￯⺀-⿿]')
+pat = re.compile(r'[\u3000-\u303f\u4e00-\u9fff\uff00-\uffef\u2e80-\u2fff]')
 bad = 0
 # Hash-protected archive: listed in source_provenance.json and checked by scripts/05_report.py, so it is kept
 # byte-identical (its 'note' field is in Chinese). See extensions/balanced/README.md.
